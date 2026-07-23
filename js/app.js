@@ -24,12 +24,16 @@
     copyBtn: document.getElementById('copyBtn'),
     downloadBtn: document.getElementById('downloadBtn'),
     gdocBtn: document.getElementById('gdocBtn'),
+    resetBriefBtn: document.getElementById('resetBriefBtn'),
     editBtn: document.getElementById('editBtn')
   };
 
+  const BRIEF_KEY = 'ltpbrief.brief';
   let data = load();
   let current = 0;
   let onBrief = false;
+  let editedBrief = null;
+  try { editedBrief = localStorage.getItem(BRIEF_KEY) || null; } catch {}
   let assistTimer = null;
   let assistSeq = 0;              // guards against out-of-order responses
   const assistCache = {};        // stepId -> last result
@@ -348,8 +352,12 @@
   function showForm() { el.formView.hidden = false; el.briefView.hidden = true; onBrief = false; renderRail(); }
   function showBrief() {
     el.formView.hidden = true; el.briefView.hidden = false;
-    el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+    el.briefDoc.innerHTML = editedBrief || Brief.toHtml(Brief.toMarkdown(data));
     onBrief = true; renderRail();
+  }
+  function saveBrief() {
+    editedBrief = el.briefDoc.innerHTML;
+    try { localStorage.setItem(BRIEF_KEY, editedBrief); } catch {}
   }
 
   async function generate() {
@@ -362,6 +370,7 @@
       el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
       toast('Draft assist is offline — showing the brief from your inputs.');
     }
+    saveBrief();
     el.genBtn.disabled = false;
   }
 
@@ -386,13 +395,20 @@
   });
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
+  el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });
+  el.resetBriefBtn.addEventListener('click', () => {
+    editedBrief = null;
+    try { localStorage.removeItem(BRIEF_KEY); } catch {}
+    el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+    toast('Brief rebuilt from your answers');
+  });
   el.copyBtn.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(el.briefDoc.innerText); toast('Brief copied'); }
     catch { toast('Copy failed — select and copy manually'); }
   });
   el.downloadBtn.addEventListener('click', () => {
     const name = 'LTP-Brief-' + (data.productArea || 'draft').replace(/\s+/g, '-') + '.md';
-    Brief.download(Brief.toMarkdown(data), name);
+    Brief.download(Brief.htmlToMarkdown(el.briefDoc), name);
   });
   el.gdocBtn.addEventListener('click', async () => {
     el.gdocBtn.disabled = true;

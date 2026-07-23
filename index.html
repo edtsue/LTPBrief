@@ -68,16 +68,17 @@
       <div class="brief-view" id="briefView" hidden>
         <header class="mainhead">
           <h1>Your brief</h1>
-          <p>Review, then export to hand off to the planning team.</p>
+          <p>Edit anything directly below, then export to hand off to the planning team.</p>
         </header>
         <div class="brief-actions">
           <button class="btn primary" id="genBtn" type="button"><svg class="gstar"><use href="#starw" /></svg> Draft with Gemini</button>
           <button class="btn" id="copyBtn" type="button">Copy</button>
           <button class="btn" id="downloadBtn" type="button">Download .md</button>
           <button class="btn ghost" id="gdocBtn" type="button" title="Setup required">Export to Google Doc</button>
+          <button class="btn ghost" id="resetBriefBtn" type="button" title="Discard edits and rebuild from your answers">Rebuild from answers</button>
           <button class="btn ghost" id="editBtn" type="button">← Back to editing</button>
         </div>
-        <article class="brief-doc" id="briefDoc"></article>
+        <article class="brief-doc" id="briefDoc" contenteditable="true" spellcheck="true" aria-label="Editable brief"></article>
       </div>
     </main>
 

@@ -94,5 +94,31 @@ const Brief = (() => {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  return { toMarkdown, toHtml, download };
+  // Serialize the (edited) rendered brief back to Markdown for export.
+  function inlineMd(node) {
+    let s = '';
+    node.childNodes.forEach(c => {
+      if (c.nodeType === 3) s += c.textContent;
+      else if (c.nodeName === 'STRONG' || c.nodeName === 'B') s += '**' + inlineMd(c) + '**';
+      else if (c.nodeName === 'EM' || c.nodeName === 'I') s += '*' + inlineMd(c) + '*';
+      else if (c.nodeName === 'BR') s += '\n';
+      else s += inlineMd(c);
+    });
+    return s;
+  }
+  function htmlToMarkdown(root) {
+    const lines = [];
+    Array.from(root.childNodes).forEach(n => {
+      const t = n.nodeName;
+      if (t === 'H1') lines.push('# ' + inlineMd(n).trim(), '');
+      else if (t === 'H2') lines.push('## ' + inlineMd(n).trim(), '');
+      else if (t === 'H3') lines.push('### ' + inlineMd(n).trim(), '');
+      else if (t === 'UL' || t === 'OL') { Array.from(n.children).forEach(li => { const s = inlineMd(li).trim(); if (s) lines.push('- ' + s); }); lines.push(''); }
+      else if (t === 'P' || t === 'DIV') { const s = inlineMd(n).trim(); if (s) lines.push(s, ''); }
+      else if (n.nodeType === 3) { const s = n.textContent.trim(); if (s) lines.push(s); }
+    });
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+  }
+
+  return { toMarkdown, toHtml, download, htmlToMarkdown };
 })();
