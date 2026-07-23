@@ -39,6 +39,11 @@
     copyBtn: document.getElementById('copyBtn'),
     pdfBtn: document.getElementById('pdfBtn'),
     resetBriefBtn: document.getElementById('resetBriefBtn'),
+    readiness: document.getElementById('readiness'),
+    saveFileBtn: document.getElementById('saveFileBtn'),
+    loadFileBtn: document.getElementById('loadFileBtn'),
+    loadFileInput: document.getElementById('loadFileInput'),
+    newBriefBtn: document.getElementById('newBriefBtn'),
     editBtn: document.getElementById('editBtn')
   };
 
@@ -610,7 +615,39 @@
     el.briefDoc.innerHTML = editedBrief || Brief.toHtml(Brief.toMarkdown(data));
     injectFunnel(el.briefDoc);
     decorateSections();
+    renderReadiness();
     onBrief = true; renderRail();
+  }
+  function validateBrief() {
+    const issues = [];
+    [['productArea', 'Product Area'], ['market', 'Market'], ['budget', 'Budget']].forEach(([id, label]) => {
+      if (!(data[id] && String(data[id]).trim())) issues.push({ label, field: id });
+    });
+    const gd = data.growthDriver;
+    if (!(Array.isArray(gd) ? gd.length : !!gd)) issues.push({ label: 'Source of brand growth', field: 'growthDriver' });
+    if (!(data.sourceAudience && data.sourceAudience.trim())) issues.push({ label: 'Growth audience', field: 'sourceAudience' });
+    FUNNEL_STAGES.forEach(s => { if (!(data[s.id] && String(data[s.id]).trim())) issues.push({ label: s.label + ' KPI', field: s.id }); });
+    return issues;
+  }
+  function renderReadiness() {
+    const box = el.readiness;
+    const issues = validateBrief();
+    if (!issues.length) {
+      box.className = 'readiness ok';
+      box.innerHTML = '<span class="rd-lead">✓ Ready to hand off</span> — every core section and full-funnel KPI is filled.';
+      return;
+    }
+    box.className = 'readiness warn';
+    box.innerHTML = '<span class="rd-lead">' + issues.length + ' to finish before hand-off:</span>';
+    const row = document.createElement('span');
+    row.className = 'readiness-chips';
+    issues.forEach(is => {
+      const c = document.createElement('button');
+      c.type = 'button'; c.className = 'rd-chip'; c.textContent = is.label;
+      if (is.field) c.addEventListener('click', () => goToField(is.field));
+      row.appendChild(c);
+    });
+    box.appendChild(row);
   }
   // Replace the Full Funnel section body with the funnel pyramid visual (reflecting current data).
   function injectFunnel(container) {
@@ -979,6 +1016,49 @@
   });
   el.interviewBtn.addEventListener('click', openInterview);
   el.tourBtn.addEventListener('click', startTour);
+
+  function downloadText(text, name, type) {
+    const blob = new Blob([text], { type: type || 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  el.saveFileBtn.addEventListener('click', () => {
+    downloadText(JSON.stringify({ v: 1, data, brief: editedBrief }, null, 2),
+      'LTP-Brief-' + (data.productArea || 'draft').replace(/\s+/g, '-') + '.json', 'application/json');
+    toast('Saved a file — open it on any device with “Load file”');
+  });
+  el.loadFileBtn.addEventListener('click', () => el.loadFileInput.click());
+  el.loadFileInput.addEventListener('change', () => {
+    const f = el.loadFileInput.files[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        data = parsed.data || {};
+        editedBrief = parsed.brief || null;
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); if (editedBrief) localStorage.setItem(BRIEF_KEY, editedBrief); else localStorage.removeItem(BRIEF_KEY); } catch {}
+        undoState = null; current = 0; showForm(); renderStep();
+        toast('Brief loaded');
+      } catch { toast('That file could not be read'); }
+      el.loadFileInput.value = '';
+    };
+    reader.readAsText(f);
+  });
+  el.newBriefBtn.addEventListener('click', () => {
+    if (!confirm('Start a new brief? This clears your current answers on this device.')) return;
+    data = {}; editedBrief = null; undoState = null;
+    try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(BRIEF_KEY); } catch {}
+    current = 0; showForm(); renderStep();
+    if (el.coAnswer) el.coAnswer.hidden = true;
+    toast('Started a new brief');
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.refine-overlay:not([hidden])').forEach(o => { o.hidden = true; });
+    }
+  });
   el.coAskForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const q = el.coAskInput.value.trim();
