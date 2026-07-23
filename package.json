@@ -1,0 +1,10 @@
+{
+  "name": "ltpbrief",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Assisted intake for long-term media planning.",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}

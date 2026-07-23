@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LTP Brief</title>
+  <meta name="description" content="An assisted intake for long-term media planning." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 0C12 6.2 5.8 12 0 12c5.8 0 12 5.8 12 12 0-6.2 6.2-12 12-12-5.8 0-12-5.8-12-12Z' fill='%239B72CB'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- gradient star symbol -->
+  <svg width="0" height="0" class="defs" aria-hidden="true">
+    <defs>
+      <linearGradient id="gem" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#4285F4" /><stop offset=".5" stop-color="#9B72CB" /><stop offset="1" stop-color="#D96570" />
+      </linearGradient>
+      <symbol id="star" viewBox="0 0 24 24">
+        <path d="M12 0C12 6.2 5.8 12 0 12c5.8 0 12 5.8 12 12 0-6.2 6.2-12 12-12-5.8 0-12-5.8-12-12Z" fill="url(#gem)" />
+      </symbol>
+      <symbol id="starw" viewBox="0 0 24 24">
+        <path d="M12 0C12 6.2 5.8 12 0 12c5.8 0 12 5.8 12 12 0-6.2 6.2-12 12-12-5.8 0-12-5.8-12-12Z" fill="#fff" />
+      </symbol>
+    </defs>
+  </svg>
+
+  <div class="app" id="app">
+    <!-- LEFT: stepper -->
+    <aside class="rail" id="rail">
+      <div class="brand">
+        <span class="lg"><svg class="gstar"><use href="#starw" /></svg></span>
+        <span class="brandtext">LTP Brief</span>
+      </div>
+      <div class="prog" id="progLabel">Step 1 of 5 · 20% complete</div>
+      <div class="progbar"><i id="progFill"></i></div>
+      <nav class="steps" id="steps" aria-label="Brief sections"></nav>
+      <div class="save" id="saveState" title="Your answers autosave to this browser">Saved ✓</div>
+    </aside>
+
+    <!-- CENTER: form / brief -->
+    <main class="main" id="main">
+      <div class="form-view" id="formView">
+        <header class="mainhead">
+          <h1 id="stepTitle">Context</h1>
+          <p id="stepSub"></p>
+        </header>
+        <form class="fields" id="fields" autocomplete="off"></form>
+        <div class="stepnav">
+          <button class="btn" id="backBtn" type="button">← Back</button>
+          <button class="btn primary" id="nextBtn" type="button">Continue →</button>
+        </div>
+      </div>
+
+      <div class="brief-view" id="briefView" hidden>
+        <header class="mainhead">
+          <h1>Your brief</h1>
+          <p>Review, then export to hand off to the planning team.</p>
+        </header>
+        <div class="brief-actions">
+          <button class="btn primary" id="genBtn" type="button"><svg class="gstar"><use href="#starw" /></svg> Draft with Gemini</button>
+          <button class="btn" id="copyBtn" type="button">Copy</button>
+          <button class="btn" id="downloadBtn" type="button">Download .md</button>
+          <button class="btn ghost" id="gdocBtn" type="button" title="Setup required">Export to Google Doc</button>
+          <button class="btn ghost" id="editBtn" type="button">← Back to editing</button>
+        </div>
+        <article class="brief-doc" id="briefDoc"></article>
+      </div>
+    </main>
+
+    <!-- RIGHT: Gemini co-pilot -->
+    <aside class="copilot" id="copilot">
+      <div class="cohd">
+        <svg class="gstar"><use href="#star" /></svg>
+        <span>Gemini</span>
+        <span class="live" id="coStatus">watching</span>
+      </div>
+      <div class="co-body" id="coBody"></div>
+      <div class="co-ask">
+        <svg class="gstar"><use href="#star" /></svg>
+        <span>Assists as you fill this step</span>
+      </div>
+    </aside>
+  </div>
+
+  <script src="js/schema.js"></script>
+  <script src="js/gemini.js"></script>
+  <script src="js/brief.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
