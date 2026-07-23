@@ -99,6 +99,10 @@ body{
 .step.done .num{background:var(--green);border-color:transparent;color:#fff}
 .step.active{background:var(--accentBg);color:var(--accentInk);font-weight:600}
 .step.active .num{background:var(--accent);border-color:transparent;color:#fff;box-shadow:var(--glow)}
+.rail-div{height:1px;background:var(--line2);margin:8px 8px}
+.brief-nav .num.brief-ico{border:none;background:none;display:grid;place-items:center}
+.brief-nav .num.brief-ico .gstar{width:19px;height:19px;animation:spin 12s linear infinite}
+.brief-nav.active{background:var(--accentBg);color:var(--accentInk);font-weight:600}
 
 /* rail footer: theme toggle + save */
 .rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:12px}

@@ -29,6 +29,7 @@
 
   let data = load();
   let current = 0;
+  let onBrief = false;
   let assistTimer = null;
   let assistSeq = 0;              // guards against out-of-order responses
   const assistCache = {};        // stepId -> last result
@@ -66,11 +67,26 @@
     steps.forEach((s, i) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'step' + (i === current ? ' active' : '') + (i !== current && stepFilled(s) ? ' done' : '');
-      b.innerHTML = `<span class="num">${i === current || !stepFilled(s) ? (i + 1) : '✓'}</span> ${s.name}`;
+      b.className = 'step' + (i === current && !onBrief ? ' active' : '') + ((i !== current || onBrief) && stepFilled(s) ? ' done' : '');
+      b.innerHTML = `<span class="num">${(i === current && !onBrief) || !stepFilled(s) ? (i + 1) : '✓'}</span> ${s.name}`;
       b.addEventListener('click', () => goTo(i));
       el.steps.appendChild(b);
     });
+
+    const div = document.createElement('div');
+    div.className = 'rail-div';
+    el.steps.appendChild(div);
+
+    const brief = document.createElement('button');
+    brief.type = 'button';
+    brief.className = 'step brief-nav' + (onBrief ? ' active' : '');
+    brief.innerHTML = `<span class="num brief-ico"><svg class="gstar"><use href="#star"/></svg></span> Full Brief`;
+    brief.addEventListener('click', () => {
+      if (completedCount() === 0) { toast('Add some brief details first.'); return; }
+      showBrief();
+    });
+    el.steps.appendChild(brief);
+
     const pct = Math.round((completedCount() / steps.length) * 100);
     el.progLabel.textContent = `Step ${current + 1} of ${steps.length} · ${pct}% complete`;
     el.progFill.style.width = Math.max(pct, (current + 1) / steps.length * 100 * 0) + '%';
@@ -329,10 +345,11 @@
   }
 
   /* ---------- brief view ---------- */
-  function showForm() { el.formView.hidden = false; el.briefView.hidden = true; }
+  function showForm() { el.formView.hidden = false; el.briefView.hidden = true; onBrief = false; renderRail(); }
   function showBrief() {
     el.formView.hidden = true; el.briefView.hidden = false;
     el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+    onBrief = true; renderRail();
   }
 
   async function generate() {
