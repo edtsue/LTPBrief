@@ -319,6 +319,12 @@ body{
 .brief-doc p,.brief-doc li{color:var(--ink2)}
 .brief-doc ul{padding-left:20px}
 .brief-doc strong{color:var(--ink)}
+.brief-doc .placeholder{color:var(--ink3);font-style:italic}
+/* funnel visual inside the brief */
+.bf-funnel{display:flex;flex-direction:column;align-items:center;gap:8px;margin:12px 0 6px}
+.bf-tier{width:var(--w);min-width:220px;background:var(--c);border-radius:20px;padding:9px 16px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.bf-stage{color:#fff;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.22)}
+.bf-kpi{color:#fff;font-size:13px;font-weight:500;text-align:center;line-height:1.35;text-shadow:0 1px 2px rgba(0,0,0,.2)}
 .brief-loading{color:var(--ink3);font-size:13.5px;display:flex;align-items:center;gap:9px}
 .brief-loading .gstar{width:17px;height:17px;animation:spin 1.2s linear infinite}
 
@@ -370,6 +376,8 @@ body{
   .brief-doc{border:none;box-shadow:none;background:#fff;color:#000;overflow:visible;height:auto;padding:0;border-radius:0;backdrop-filter:none;-webkit-backdrop-filter:none}
   .brief-doc h1,.brief-doc h2,.brief-doc h3,.brief-doc p,.brief-doc li,.brief-doc strong{color:#000!important}
   .brief-doc h2{border-bottom:1px solid #ccc;display:block}
+  .bf-tier{-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact}
+  .bf-stage,.bf-kpi{color:#fff!important}
 }
 
 /* ---------- responsive ---------- */

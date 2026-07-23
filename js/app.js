@@ -4,6 +4,11 @@
 (() => {
   const STORE_KEY = 'ltpbrief.v1';
   const steps = SCHEMA.steps;
+  const FUNNEL_STAGES = (() => {
+    try { return steps.find(s => s.id === 'funnel').groups.flatMap(g => g.fields).find(f => f.type === 'funnel').stages; }
+    catch { return []; }
+  })();
+  const FUNNEL_WIDTHS = [100, 85, 70, 57, 46];
 
   const el = {
     steps: document.getElementById('steps'),
@@ -575,8 +580,32 @@
   function showBrief() {
     el.formView.hidden = true; el.briefView.hidden = false;
     el.briefDoc.innerHTML = editedBrief || Brief.toHtml(Brief.toMarkdown(data));
+    injectFunnel(el.briefDoc);
     decorateSections();
     onBrief = true; renderRail();
+  }
+  // Replace the Full Funnel section body with the funnel pyramid visual (reflecting current data).
+  function injectFunnel(container) {
+    if (!FUNNEL_STAGES.length) return;
+    let target = null;
+    container.querySelectorAll('h2').forEach(h => { if ((h.textContent || '').trim().toLowerCase().indexOf('full funnel') === 0) target = h; });
+    if (!target) return;
+    let n = target.nextSibling;
+    while (n && n.nodeName !== 'H2') { const nx = n.nextSibling; n.remove(); n = nx; }
+    if (!FUNNEL_STAGES.some(s => (data[s.id] || '').trim())) {
+      const p = document.createElement('p'); p.className = 'placeholder'; p.textContent = 'No funnel KPIs yet.'; target.after(p); return;
+    }
+    const fn = document.createElement('div'); fn.className = 'bf-funnel';
+    FUNNEL_STAGES.forEach((s, i) => {
+      const v = (data[s.id] || '').trim();
+      const tier = document.createElement('div'); tier.className = 'bf-tier';
+      tier.style.setProperty('--w', (FUNNEL_WIDTHS[i] != null ? FUNNEL_WIDTHS[i] : 46) + '%');
+      tier.style.setProperty('--c', s.color);
+      const st = document.createElement('div'); st.className = 'bf-stage'; st.textContent = s.label;
+      const kp = document.createElement('div'); kp.className = 'bf-kpi'; kp.textContent = v || '—';
+      tier.append(st, kp); fn.appendChild(tier);
+    });
+    target.after(fn);
   }
   function cleanBriefHtml() {
     const clone = el.briefDoc.cloneNode(true);
@@ -705,6 +734,7 @@
       el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
       toast('Draft assist is offline — showing the brief from your inputs.');
     }
+    injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
     el.genBtn.disabled = false;
@@ -877,6 +907,7 @@
     editedBrief = null;
     try { localStorage.removeItem(BRIEF_KEY); } catch {}
     el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+    injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
     toast('Brief rebuilt from your answers');
