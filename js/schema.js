@@ -38,12 +38,13 @@ const SCHEMA = {
         {
           fields: [
             {
-              id: 'howGrows', label: 'How the brand will grow', type: 'select',
-              options: ['Increase purchase volume', 'Increase purchase value', 'Brand extension']
-            },
-            {
-              id: 'whereGrowth', label: 'Where growth comes from', type: 'select',
-              options: ['Recruit new users', 'Steal competitive share', 'Increase volume of use', 'Increase frequency of use', 'Convince people to pay more', 'Open new products / services']
+              id: 'growthDriver', label: 'Source of brand growth', type: 'select', full: true,
+              otherField: true,
+              optgroups: [
+                { label: 'Increase purchase volume', options: ['Increase user base', 'Recruit new users', 'Steal competitive share', 'Increase volume of transactions or engagements', 'Increase volume of use', 'Increase frequency of use'] },
+                { label: 'Increase purchase value', options: ['Increase revenue per purchase', 'Convince people to pay more'] },
+                { label: 'Brand extension', options: ['A diversified product range', 'Open new products and services'] }
+              ]
             },
             {
               id: 'sourceAudience', label: 'Source-of-growth audience', type: 'textarea', full: true,

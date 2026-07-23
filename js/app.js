@@ -98,11 +98,22 @@
       const blank = document.createElement('option');
       blank.value = ''; blank.textContent = 'Select…';
       input.appendChild(blank);
-      f.options.forEach(o => {
+      const addOpt = (val, parent) => {
         const opt = document.createElement('option');
-        opt.value = o; opt.textContent = o;
-        input.appendChild(opt);
-      });
+        opt.value = val; opt.textContent = val;
+        parent.appendChild(opt);
+      };
+      if (f.optgroups) {
+        f.optgroups.forEach(g => {
+          const og = document.createElement('optgroup');
+          og.label = g.label;
+          g.options.forEach(o => addOpt(o, og));
+          input.appendChild(og);
+        });
+      } else {
+        (f.options || []).forEach(o => addOpt(o, input));
+      }
+      if (f.otherField) addOpt('Other', input);
     } else {
       input = document.createElement('input');
       input.type = 'text';
@@ -115,6 +126,21 @@
     if (f.type === 'select') input.addEventListener('change', () => runAssist());
     input.addEventListener('blur', () => runAssist());
     wrap.appendChild(input);
+
+    // "Other" free-text companion for selects that allow it.
+    if (f.type === 'select' && f.otherField) {
+      const other = document.createElement('input');
+      other.type = 'text';
+      other.id = 'f_' + f.id + 'Other';
+      other.placeholder = f.otherPlaceholder || 'Describe it in your own words';
+      if (data[f.id + 'Other'] != null) other.value = data[f.id + 'Other'];
+      const syncOther = () => { other.style.display = input.value === 'Other' ? 'block' : 'none'; };
+      syncOther();
+      other.addEventListener('input', () => { data[f.id + 'Other'] = other.value; save(); scheduleAssist(); markRail(); });
+      other.addEventListener('blur', () => runAssist());
+      input.addEventListener('change', syncOther);
+      wrap.appendChild(other);
+    }
     return wrap;
   }
 

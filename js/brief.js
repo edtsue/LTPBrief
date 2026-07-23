@@ -40,7 +40,9 @@ const Brief = (() => {
     L.push('');
 
     L.push('## Growth Strategy', '');
-    ['howGrows', 'whereGrowth', 'sourceAudience'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
+    const driver = val(data, 'growthDriver') === 'Other' ? val(data, 'growthDriverOther') : val(data, 'growthDriver');
+    if (driver) L.push(`- **Source of brand growth:** ${driver}`);
+    if (val(data, 'sourceAudience')) L.push(`- **${F['sourceAudience']}:** ${val(data, 'sourceAudience')}`);
     L.push('');
 
     L.push('## Landscape', '');
