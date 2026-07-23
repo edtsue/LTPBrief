@@ -27,6 +27,7 @@ const FIELD_IDS = {
 const ASSIST_SCHEMA = {
   type: 'object',
   properties: {
+    ack: { type: 'string' },
     checks: {
       type: 'array',
       items: {
@@ -131,7 +132,8 @@ function assistPrompt(stepId, data) {
 The user is on step "${stepId}". Here is everything entered across the whole brief so far (JSON):
 ${JSON.stringify(data, null, 2)}
 
-Do two things, grounded ONLY in what they wrote:
+Do three things, grounded ONLY in what they wrote:
+0) ack — one short, present-tense line acknowledging the LATEST/most important thing they've captured on this step (e.g. "Tracking a $40–55M US budget for Gemini App."). Keep it under 12 words, specific to their actual content, and reassuring. Always return one.
 1) checks — flag genuine contradictions or tensions between THIS step and any earlier step, plus real gaps or opportunities. Be specific and reference the actual values. Severity: "tension" (conflicts), "gap" (something required is missing, e.g. an empty funnel stage), "fyi" (a helpful observation/opportunity). Return 0–3. Do NOT invent problems; if it's consistent, return none.
 2) suggestions — offer up to 2 concrete pre-fill values for EMPTY or thin fields on this step only. Valid fieldId values for this step: ${ids.join(', ')}. "value" is the exact text to drop into the field; keep it tight and editable; "label" is a short button title; "rationale" is one line on why. Only suggest where you can add real value from context. Never suggest for the "assets" field.
 

@@ -496,7 +496,7 @@
 
   function scheduleAssist() {
     clearTimeout(assistTimer);
-    assistTimer = setTimeout(runAssist, 1100);
+    assistTimer = setTimeout(runAssist, 700);
   }
 
   async function runAssist() {
@@ -524,10 +524,19 @@
       el.coBody.innerHTML = `<div class="co-empty">Start filling in this step and I'll flag anything that clashes with earlier answers — and offer suggestions to speed you up.</div>`;
       return;
     }
+    if (res.ack) {
+      const a = document.createElement('div');
+      a.className = 'ack';
+      a.innerHTML = '<svg class="gstar"><use href="#star"/></svg> ' + escapeHtml(res.ack);
+      el.coBody.appendChild(a);
+    }
     const checks = res.checks || [];
     const suggestions = res.suggestions || [];
     if (!checks.length && !suggestions.length) {
-      el.coBody.innerHTML = `<div class="assist fyi"><div class="hd"><svg class="gstar"><use href="#star"/></svg> Looks consistent</div>Nothing clashes with your earlier answers. Keep going.</div>`;
+      const ok = document.createElement('div');
+      ok.className = 'assist fyi';
+      ok.innerHTML = `<div class="hd"><svg class="gstar"><use href="#star"/></svg> Looks consistent</div>Nothing clashes with your earlier answers. Keep going.`;
+      el.coBody.appendChild(ok);
       return;
     }
     checks.forEach(c => {
