@@ -43,6 +43,7 @@ const Brief = (() => {
     const driver = val(data, 'growthDriver') === 'Other' ? val(data, 'growthDriverOther') : val(data, 'growthDriver');
     if (driver) L.push(`- **Source of brand growth:** ${driver}`);
     if (val(data, 'sourceAudience')) L.push(`- **${F['sourceAudience']}:** ${val(data, 'sourceAudience')}`);
+    if (val(data, 'commsStrategy')) L.push(`- **${F['commsStrategy']}:** ${val(data, 'commsStrategy')}`);
     L.push('');
 
     L.push('## Landscape', '');

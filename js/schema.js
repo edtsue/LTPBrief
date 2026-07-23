@@ -49,6 +49,10 @@ const SCHEMA = {
             {
               id: 'sourceAudience', label: 'Source-of-growth audience', type: 'textarea', full: true,
               placeholder: 'Go deeper than the broad definition. Who, specifically, will drive growth — and why you have the right to win them.'
+            },
+            {
+              id: 'commsStrategy', label: 'Comms Strategy', type: 'textarea', full: true,
+              placeholder: 'Barriers to overcome · planning principles · the role of channels'
             }
           ]
         }
