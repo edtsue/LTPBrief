@@ -200,7 +200,7 @@
       el.fields.appendChild(group);
     });
     el.backBtn.disabled = current === 0;
-    el.nextBtn.textContent = current === steps.length - 1 ? 'Review brief →' : 'Continue →';
+    el.nextBtn.textContent = current === steps.length - 1 ? 'Finish & review brief →' : 'Continue →';
     renderRail();
     renderAssist(assistCache[s.id]);   // show cached, then refresh
     runAssist();

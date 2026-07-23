@@ -129,6 +129,16 @@ module.exports = async (req, res) => {
       return;
     }
 
+    if (action === 'models') {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${API_KEY}&pageSize=200`);
+      const j = await r.json();
+      const models = (j.models || [])
+        .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map(m => m.name.replace('models/', ''));
+      res.status(200).json({ current: MODEL, models });
+      return;
+    }
+
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
     res.status(502).json({ error: String(e.message || e) });
