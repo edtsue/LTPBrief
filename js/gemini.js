@@ -27,6 +27,11 @@ const Gemini = (() => {
     // -> { markdown }
     synthesize(data) {
       return call('synthesize', { data });
+    },
+    // Rewrite a single brief section per an instruction.
+    // -> { markdown }
+    refine(heading, content, instruction) {
+      return call('refine', { heading, content, instruction });
     }
   };
 })();

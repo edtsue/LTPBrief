@@ -353,11 +353,124 @@
   function showBrief() {
     el.formView.hidden = true; el.briefView.hidden = false;
     el.briefDoc.innerHTML = editedBrief || Brief.toHtml(Brief.toMarkdown(data));
+    decorateSections();
     onBrief = true; renderRail();
   }
+  function cleanBriefHtml() {
+    const clone = el.briefDoc.cloneNode(true);
+    clone.querySelectorAll('.sec-ai').forEach(b => b.remove());
+    return clone.innerHTML;
+  }
   function saveBrief() {
-    editedBrief = el.briefDoc.innerHTML;
+    editedBrief = cleanBriefHtml();
     try { localStorage.setItem(BRIEF_KEY, editedBrief); } catch {}
+  }
+
+  /* ---------- per-section refine ---------- */
+  const REFINE_PRESETS = [
+    { label: 'More concise', instr: 'Make this section more concise without losing key facts.' },
+    { label: 'Punchier', instr: 'Make this section punchier and more energetic; tighten the language.' },
+    { label: 'Expand', instr: 'Expand this section with a bit more useful detail, staying faithful to the facts.' },
+    { label: 'Simplify', instr: 'Simplify the language — plain, clear, and jargon-free.' },
+    { label: 'Fix grammar & flow', instr: 'Fix grammar and improve the flow; keep the meaning intact.' }
+  ];
+  let refineTarget = null;
+  let refineOverlay = null;
+
+  function decorateSections() {
+    el.briefDoc.querySelectorAll('h2').forEach(h2 => {
+      if (h2.querySelector('.sec-ai')) return;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sec-ai';
+      btn.setAttribute('contenteditable', 'false');
+      btn.title = 'Refine this section with Gemini';
+      btn.innerHTML = '<svg class="gstar"><use href="#starw"/></svg>';
+      btn.addEventListener('click', (e) => { e.preventDefault(); openRefine(h2); });
+      h2.appendChild(btn);
+    });
+  }
+  function sectionNodes(h2) {
+    const nodes = [h2];
+    let n = h2.nextSibling;
+    while (n && n.nodeName !== 'H2') { nodes.push(n); n = n.nextSibling; }
+    return nodes;
+  }
+  function sectionMarkdown(h2) {
+    const tmp = document.createElement('div');
+    sectionNodes(h2).forEach(n => tmp.appendChild(n.cloneNode(true)));
+    tmp.querySelectorAll('.sec-ai').forEach(b => b.remove());
+    return Brief.htmlToMarkdown(tmp);
+  }
+  function headingText(h2) {
+    const clone = h2.cloneNode(true);
+    clone.querySelectorAll('.sec-ai').forEach(b => b.remove());
+    return (clone.textContent || 'section').trim();
+  }
+  function buildOverlay() {
+    const ov = document.createElement('div');
+    ov.className = 'refine-overlay';
+    ov.hidden = true;
+    ov.innerHTML =
+      '<div class="refine-card" role="dialog" aria-modal="true">' +
+      '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Refine <span class="rf-name"></span>' +
+      '<button class="rf-close" type="button" aria-label="Close">×</button></div>' +
+      '<div class="rf-actions"></div>' +
+      '<textarea class="rf-custom" placeholder="Or type your own instruction…" rows="2"></textarea>' +
+      '<div class="rf-foot"><button class="btn primary rf-apply" type="button">Apply</button></div>' +
+      '<div class="rf-loading" hidden><svg class="gstar"><use href="#star"/></svg> Refining…</div>' +
+      '</div>';
+    document.body.appendChild(ov);
+    const actions = ov.querySelector('.rf-actions');
+    REFINE_PRESETS.forEach(p => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'rf-chip'; b.textContent = p.label;
+      b.addEventListener('click', () => doRefine(p.instr));
+      actions.appendChild(b);
+    });
+    ov.querySelector('.rf-close').addEventListener('click', closeRefine);
+    ov.addEventListener('click', (e) => { if (e.target === ov) closeRefine(); });
+    ov.querySelector('.rf-apply').addEventListener('click', () => {
+      const c = ov.querySelector('.rf-custom').value.trim();
+      if (c) doRefine(c);
+    });
+    return ov;
+  }
+  function openRefine(h2) {
+    refineTarget = h2;
+    if (!refineOverlay) refineOverlay = buildOverlay();
+    refineOverlay.querySelector('.rf-name').textContent = headingText(h2);
+    refineOverlay.querySelector('.rf-custom').value = '';
+    refineOverlay.querySelector('.rf-loading').hidden = true;
+    refineOverlay.hidden = false;
+  }
+  function closeRefine() { if (refineOverlay) refineOverlay.hidden = true; refineTarget = null; }
+  async function doRefine(instruction) {
+    if (!refineTarget) return;
+    const h2 = refineTarget;
+    const heading = headingText(h2);
+    const content = sectionMarkdown(h2);
+    const loading = refineOverlay.querySelector('.rf-loading');
+    loading.hidden = false;
+    try {
+      const res = await Gemini.refine(heading, content, instruction);
+      let md = (res.markdown || '').trim();
+      if (!md) { loading.hidden = true; toast('No change returned'); return; }
+      if (!/^#{1,3}\s/.test(md)) md = `## ${heading}\n\n${md}`;
+      const tmp = document.createElement('div');
+      tmp.innerHTML = Brief.toHtml(md);
+      const oldNodes = sectionNodes(h2);
+      const parent = h2.parentNode;
+      Array.from(tmp.childNodes).forEach(nn => parent.insertBefore(nn, h2));
+      oldNodes.forEach(n => n.remove());
+      decorateSections();
+      saveBrief();
+      closeRefine();
+      toast('Section refined');
+    } catch (err) {
+      loading.hidden = true;
+      toast(err && err.status === 503 ? 'Assist is offline — add the Gemini key.' : 'Could not refine just now.');
+    }
   }
 
   async function generate() {
@@ -370,6 +483,7 @@
       el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
       toast('Draft assist is offline — showing the brief from your inputs.');
     }
+    decorateSections();
     saveBrief();
     el.genBtn.disabled = false;
   }
@@ -400,6 +514,8 @@
     editedBrief = null;
     try { localStorage.removeItem(BRIEF_KEY); } catch {}
     el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+    decorateSections();
+    saveBrief();
     toast('Brief rebuilt from your answers');
   });
   el.copyBtn.addEventListener('click', async () => {
@@ -415,7 +531,7 @@
     const original = el.gdocBtn.textContent;
     try {
       await GDoc.exportDoc(
-        () => el.briefDoc.innerHTML,
+        () => cleanBriefHtml(),
         () => 'LTP Brief — ' + (data.productArea || 'Draft'),
         (msg) => { el.gdocBtn.textContent = msg; }
       );

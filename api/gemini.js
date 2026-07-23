@@ -96,6 +96,21 @@ Intake (JSON):
 ${JSON.stringify(data, null, 2)}`;
 }
 
+function refinePrompt(heading, content, instruction) {
+  return `${FRAMEWORK}
+
+Rewrite ONE section of an LTP brief according to the user's instruction.
+Rules:
+- Return the section in Markdown, starting with the exact same heading line "## ${heading}" (do not rename or drop the heading).
+- Stay faithful to the facts in the current text; do not invent figures or claims.
+- Return ONLY the rewritten section markdown — no preamble, no explanation, no code fences.
+
+Instruction: ${instruction}
+
+Current section:
+${content}`;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   if (!API_KEY) { res.status(503).json({ error: 'Assistant not configured' }); return; }
@@ -126,6 +141,16 @@ module.exports = async (req, res) => {
         generationConfig: { temperature: 0.4 }
       });
       res.status(200).json({ markdown });
+      return;
+    }
+
+    if (action === 'refine') {
+      let md = await callGemini({
+        contents: [{ role: 'user', parts: [{ text: refinePrompt(payload.heading || '', payload.content || '', payload.instruction || '') }] }],
+        generationConfig: { temperature: 0.5 }
+      });
+      md = String(md).replace(/^```(?:markdown)?\s*/i, '').replace(/\s*```$/i, '').trim();
+      res.status(200).json({ markdown: md });
       return;
     }
 
