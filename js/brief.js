@@ -52,13 +52,12 @@ const Brief = (() => {
     L.push('');
 
     L.push('## Landscape', '');
-    ['competitors', 'categoryDynamics', 'whiteSpace'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
+    ['competitors', 'categoryDynamics', 'whiteSpace', 'culturalTerritories'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
     L.push('');
 
     L.push('## Full Funnel', '');
     const kpis = [['kpiAwareness', 'Awareness'], ['kpiConsideration', 'Consideration'], ['kpiIntent', 'Intent'], ['kpiPurchase', 'Purchase / Action'], ['kpiLoyalty', 'Loyalty']];
     kpis.forEach(([id, lbl]) => { if (val(data, id)) L.push(`- **${lbl}:** ${val(data, id)}`); });
-    if (val(data, 'culturalTerritories')) L.push('', `**Cultural territories:** ${val(data, 'culturalTerritories')}`);
     L.push('');
 
     L.push('## Existing Assets', '');

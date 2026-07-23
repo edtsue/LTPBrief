@@ -212,6 +212,21 @@ body{
 .ai-mini .gstar{width:14px;height:14px}
 .gstar.sp{animation:spin 1.1s linear infinite}
 
+/* field reference link */
+.field-link{align-self:flex-start;font-family:inherit;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:7px;
+  padding:8px 14px;border-radius:999px;border:1px solid var(--fieldline);background:var(--field);color:var(--accentInk);cursor:pointer;transition:.15s}
+.field-link:hover{border-color:var(--accent);transform:translateY(-1px)}
+.field-link span{font-size:13px}
+
+/* in-app iframe viewer */
+.iframe-card{width:min(1120px,96vw);height:84vh;display:flex;flex-direction:column;padding:14px 16px}
+.iframe-card .refine-hd{margin-bottom:10px}
+.iframe-open{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accentInk);text-decoration:none;padding:4px 10px;border-radius:999px;border:1px solid var(--fieldline)}
+.iframe-open:hover{border-color:var(--accent)}
+.iframe-card .rf-close{margin-left:12px}
+.ref-frame{flex:1;width:100%;border:1px solid var(--line2);border-radius:12px;background:#fff}
+.iframe-fallback{margin-top:8px;text-align:center;font-size:11.5px}
+
 /* audience cards */
 .aud-list{display:flex;flex-direction:column;gap:10px;max-height:60vh;overflow-y:auto}
 .aud-card{border:1px solid var(--fieldline);border-radius:14px;padding:13px 15px;background:var(--field)}

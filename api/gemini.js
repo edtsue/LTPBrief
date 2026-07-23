@@ -11,16 +11,16 @@ Principles: full-funnel is mandatory; plans are annual (not per-campaign); watch
 The brief has five steps:
 1. Context — product area, market, planning year, budget (a range is fine), launch dates, critical internal dates, stakeholders; plus guardrails (constraints/mandatories, X-PA overlaps).
 2. Growth Strategy — the source of brand growth (one growth driver from the taxonomy: increase purchase volume via user base / new users / competitive share / transaction volume / frequency; increase purchase value via revenue per purchase / paying more; or brand extension via new products / a diversified range — or a custom "Other"); the source-of-growth audience (should be specific, not a broad demo); and comms strategy (barriers to overcome, planning principles, and the role of channels).
-3. Landscape — key competitors, category dynamics (where the brand leads vs. lags the leader), and the white space to win.
-4. Full Funnel — a KPI per stage (Awareness, Consideration, Intent, Purchase, Loyalty). Every stage should have one; a missing stage is a gap. Plus cultural territories to plan around.
+3. Landscape — key competitors, category dynamics (where the brand leads vs. lags the leader), the white space to win, and cultural territories / community angles to plan around.
+4. Full Funnel — a KPI per stage (Awareness, Consideration, Intent, Purchase, Loyalty). Every stage should have one; a missing stage is a gap.
 5. Existing Assets — creative available or in production, its status, and readiness dates (flag when readiness misses a launch date).
 `;
 
 const FIELD_IDS = {
   context: ['productArea', 'market', 'planningYear', 'budget', 'launchDates', 'internalDates', 'stakeholders', 'constraints', 'xpaOverlaps'],
   growth: ['growthDriver', 'growthDriverOther', 'sourceAudience', 'commsStrategy'],
-  landscape: ['competitors', 'categoryDynamics', 'whiteSpace'],
-  funnel: ['kpiAwareness', 'kpiConsideration', 'kpiIntent', 'kpiPurchase', 'kpiLoyalty', 'culturalTerritories'],
+  landscape: ['competitors', 'categoryDynamics', 'whiteSpace', 'culturalTerritories'],
+  funnel: ['kpiAwareness', 'kpiConsideration', 'kpiIntent', 'kpiPurchase', 'kpiLoyalty'],
   assets: ['assets']
 };
 

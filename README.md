@@ -32,19 +32,13 @@ npm run dev               # vercel dev
 | Variable | Purpose |
 | --- | --- |
 | `GEMINI_KEY` | Server-side key for the assistant (required for live assist). `GEMINI_API_KEY` also accepted. |
-| `GEMINI_MODEL` | Optional model override (default `gemini-2.5-flash`) |
-| `GOOGLE_CLIENT_ID` | OAuth Client ID for one-click Google Doc export (public value). Export button is inert until set. |
+| `GEMINI_MODEL` | Optional model override (default `gemini-3.6-flash`) |
 
-## Google Doc export setup
+## Open in Google Docs
 
-The **Export to Google Doc** button signs the user in with Google (least-privilege
-`drive.file` scope) and creates a formatted Doc in *their* Drive — nothing is stored server-side.
-
-To enable it:
-1. In a Google Cloud project, create an **OAuth 2.0 Client ID** of type *Web application*.
-2. Add `https://ltpbrief.mfgpilots.com` as an **Authorized JavaScript origin**.
-3. Enable the **Google Drive API** for that project.
-4. Set `GOOGLE_CLIENT_ID` in the Vercel project to the Client ID.
+The **Open in Google Docs** button copies the brief as formatted content and opens a new
+Google Doc (`docs.new`) to paste into. Google Docs handles its own sign-in — no OAuth or
+Cloud setup required.
 
 Without a key the form still works, saves, and exports — only the live assist is disabled.
 

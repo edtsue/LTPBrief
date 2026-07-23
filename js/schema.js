@@ -68,7 +68,12 @@ const SCHEMA = {
           fields: [
             { id: 'competitors', label: 'Key competitors', type: 'textarea', full: true, placeholder: 'Category leader, disruptors, and how they show up' },
             { id: 'categoryDynamics', label: 'Category dynamics', type: 'textarea', full: true, placeholder: 'Where the brand leads vs. lags the leader on the metrics that matter' },
-            { id: 'whiteSpace', label: 'Where we can win', type: 'textarea', full: true, placeholder: 'The white space the strategy can own' }
+            { id: 'whiteSpace', label: 'Where we can win', type: 'textarea', full: true, placeholder: 'The white space the strategy can own' },
+            {
+              id: 'culturalTerritories', label: 'Cultural territories & community angles', type: 'textarea', full: true,
+              placeholder: 'Ownable moments, communities, and spaces the brand has permission to play in',
+              link: { label: 'Open Tyrion — 2H US view', url: 'https://sites.google.com/mediafuturesgroup.com/tyrion/2h-us-view' }
+            }
           ]
         }
       ]
@@ -77,7 +82,7 @@ const SCHEMA = {
       id: 'funnel',
       name: 'Full Funnel',
       title: 'Full Funnel',
-      sub: 'A KPI for every stage — full-funnel is mandatory — plus the cultural territory to plan around.',
+      sub: 'A KPI for every stage — full-funnel is mandatory.',
       groups: [
         {
           title: 'Full-funnel KPIs',
@@ -92,12 +97,6 @@ const SCHEMA = {
                 { id: 'kpiLoyalty', label: 'Loyalty', color: '#9B72CB', placeholder: 'e.g. DAU / D30 retention' }
               ]
             }
-          ]
-        },
-        {
-          title: 'Cultural playground',
-          fields: [
-            { id: 'culturalTerritories', label: 'Cultural territories & community angles', type: 'textarea', full: true, placeholder: 'Ownable moments, communities, and spaces the brand has permission to play in' }
           ]
         }
       ]

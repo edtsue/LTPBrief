@@ -176,6 +176,14 @@
       b.addEventListener('click', () => openAudiences(f.id));
       wrap.appendChild(b);
     }
+    // Optional reference link that opens in an in-app viewer.
+    if (f.link) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'field-link';
+      b.innerHTML = '<span>↗</span> ' + escapeHtml(f.link.label);
+      b.addEventListener('click', () => openIframe(f.link.url, f.link.label));
+      wrap.appendChild(b);
+    }
     return wrap;
   }
 
@@ -649,6 +657,21 @@
     }
   }
 
+  /* ---------- in-app reference viewer ---------- */
+  let iframeModal = null;
+  function openIframe(url, title) {
+    if (!iframeModal) iframeModal = makeModal();
+    iframeModal.card.className = 'refine-card iframe-card';
+    iframeModal.card.innerHTML =
+      '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> ' + escapeHtml(title || 'Reference') +
+      '<a class="iframe-open" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open in new tab ↗</a>' +
+      '<button class="rf-close" type="button" aria-label="Close">×</button></div>' +
+      '<iframe class="ref-frame" src="' + escapeHtml(url) + '" title="' + escapeHtml(title || '') + '" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
+      '<div class="iframe-fallback co-empty">If the page doesn&rsquo;t appear, it may block embedding — use &ldquo;Open in new tab&rdquo; above.</div>';
+    iframeModal.card.querySelector('.rf-close').addEventListener('click', () => iframeModal.close());
+    iframeModal.open();
+  }
+
   /* ---------- document ingest ---------- */
   let ingestModal = null, ingestFile = null;
   function openIngest() {
@@ -791,23 +814,27 @@
     const name = 'LTP-Brief-' + (data.productArea || 'draft').replace(/\s+/g, '-') + '.md';
     Brief.download(Brief.htmlToMarkdown(el.briefDoc), name);
   });
-  el.gdocBtn.addEventListener('click', async () => {
-    el.gdocBtn.disabled = true;
-    const original = el.gdocBtn.textContent;
+  // Copy the brief as rich (formatted) content, then open a new Google Doc to paste into.
+  // Google Docs handles its own sign-in — no OAuth setup required.
+  async function copyRich(html, plain) {
     try {
-      await GDoc.exportDoc(
-        () => cleanBriefHtml(),
-        () => 'LTP Brief — ' + (data.productArea || 'Draft'),
-        (msg) => { el.gdocBtn.textContent = msg; }
-      );
-      toast('Opened your new Google Doc');
-    } catch (err) {
-      if (err && err.code === 'not-configured') toast('Google Doc export needs a one-time setup — coming shortly.');
-      else toast(err && err.message ? err.message : 'Could not create the Google Doc.');
-    } finally {
-      el.gdocBtn.textContent = original;
-      el.gdocBtn.disabled = false;
+      const item = new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' })
+      });
+      await navigator.clipboard.write([item]);
+      return true;
+    } catch {
+      try { await navigator.clipboard.writeText(plain); return true; } catch { return false; }
     }
+  }
+  el.gdocBtn.addEventListener('click', async () => {
+    // Open synchronously in the click gesture so it isn't popup-blocked.
+    window.open('https://docs.new', '_blank', 'noopener');
+    const ok = await copyRich(cleanBriefHtml(), el.briefDoc.innerText);
+    toast(ok
+      ? 'Brief copied — paste it into the new Google Doc (⌘/Ctrl-V)'
+      : 'New Google Doc opened — copy your brief and paste it in');
   });
 
   /* ---------- theme ---------- */
