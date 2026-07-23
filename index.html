@@ -83,11 +83,12 @@
           <button class="btn primary" id="genBtn" type="button" data-tip="Let Gemini rewrite your answers into a polished brief"><svg class="gstar"><use href="#starw" /></svg> Draft with Gemini</button>
           <button class="btn" id="copyBtn" type="button" data-tip="Copy the brief to your clipboard">Copy</button>
           <button class="btn" id="pdfBtn" type="button" data-tip="Export the brief as a PDF">Export as PDF</button>
-          <button class="btn ghost" id="resetBriefBtn" type="button" data-tip="Discard edits and rebuild from your answers">Rebuild from answers</button>
           <button class="btn ghost" id="editBtn" type="button" data-tip="Go back to the form">← Back to editing</button>
-          <button class="btn ghost" id="saveFileBtn" type="button" data-tip="Download your answers as a file to continue on another device">Save file</button>
-          <button class="btn ghost" id="loadFileBtn" type="button" data-tip="Load answers from a saved file">Load file</button>
-          <button class="btn ghost" id="newBriefBtn" type="button" data-tip="Clear everything and start a fresh brief">New brief</button>
+          <button class="btn ghost more-btn" id="moreBtn" type="button" aria-label="More actions" data-tip="More actions">•••</button>
+          <button class="btn ghost sheet-only" id="resetBriefBtn" type="button">Rebuild from answers</button>
+          <button class="btn ghost sheet-only" id="saveFileBtn" type="button">Save file</button>
+          <button class="btn ghost sheet-only" id="loadFileBtn" type="button">Load file</button>
+          <button class="btn ghost sheet-only" id="newBriefBtn" type="button">New brief</button>
           <input type="file" id="loadFileInput" accept=".json,application/json" hidden />
         </div>
         <article class="brief-doc" id="briefDoc" contenteditable="true" spellcheck="true" aria-label="Editable brief"></article>

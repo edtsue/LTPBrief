@@ -44,6 +44,7 @@
     loadFileBtn: document.getElementById('loadFileBtn'),
     loadFileInput: document.getElementById('loadFileInput'),
     newBriefBtn: document.getElementById('newBriefBtn'),
+    moreBtn: document.getElementById('moreBtn'),
     editBtn: document.getElementById('editBtn')
   };
 
@@ -156,6 +157,7 @@
     if (f.type === 'dropzone') { return dropzoneNode(f); }
     if (f.type === 'budget') { return budgetNode(f); }
 
+    wrap.classList.add('std');
     const label = makeLabel(f.label, f.help);
     label.htmlFor = 'f_' + f.id;
     wrap.appendChild(label);
@@ -359,7 +361,9 @@
       row.className = 'pill-row';
       options.forEach(o => {
         const p = document.createElement('button');
-        p.type = 'button'; p.className = 'pill' + (sel.includes(o) ? ' on' : ''); p.textContent = o;
+        p.type = 'button'; p.className = 'pill' + (sel.includes(o) ? ' on' : '');
+        const ck = document.createElement('span'); ck.className = 'ck'; ck.textContent = '✓';
+        p.appendChild(ck); p.appendChild(document.createTextNode(o));
         p.addEventListener('click', () => toggle(o, p));
         row.appendChild(p);
       });
@@ -382,7 +386,9 @@
       const orow = document.createElement('div');
       orow.className = 'pill-row';
       const op = document.createElement('button');
-      op.type = 'button'; op.className = 'pill' + (sel.includes('Other') ? ' on' : ''); op.textContent = 'Other';
+      op.type = 'button'; op.className = 'pill' + (sel.includes('Other') ? ' on' : '');
+      const opck = document.createElement('span'); opck.className = 'ck'; opck.textContent = '✓';
+      op.appendChild(opck); op.appendChild(document.createTextNode('Other'));
       op.addEventListener('click', () => toggle('Other', op));
       orow.appendChild(op);
       set.appendChild(orow);
@@ -515,19 +521,19 @@
     el.stepSub.textContent = s.sub;
     el.fields.innerHTML = '';
     s.groups.forEach(g => {
-      const group = document.createElement('div');
-      group.className = 'fgroup';
       if (g.title) {
         const h = document.createElement('div');
-        h.className = 'gsection';
+        h.className = 'glabel';
         h.textContent = g.title;
-        group.appendChild(h);
+        el.fields.appendChild(h);
       }
-      const grid = document.createElement('div');
-      grid.className = 'grid';
-      g.fields.forEach(f => grid.appendChild(fieldNode(f)));
-      group.appendChild(grid);
-      el.fields.appendChild(group);
+      // Bare full-bleed field types (dropzone) render without a card chrome.
+      const bare = g.fields.length === 1 && g.fields[0].type === 'dropzone';
+      if (bare) { const n = fieldNode(g.fields[0]); n.classList.add('card-none'); el.fields.appendChild(n); return; }
+      const card = document.createElement('div');
+      card.className = 'card';
+      g.fields.forEach(f => card.appendChild(fieldNode(f)));
+      el.fields.appendChild(card);
     });
     el.backBtn.disabled = current === 0;
     el.nextBtn.textContent = current === steps.length - 1 ? 'Finish & review brief →' : 'Continue →';
@@ -1094,9 +1100,44 @@
     if (el.coAnswer) el.coAnswer.hidden = true;
     toast('Started a new brief');
   });
+
+  /* ---------- action sheet (consolidates secondary brief actions) ---------- */
+  let sheetEl = null;
+  function buildSheet() {
+    const w = document.createElement('div');
+    w.className = 'sheet-wrap';
+    w.innerHTML =
+      '<div class="sheet-scrim"></div>' +
+      '<div class="sheet" role="dialog" aria-modal="true">' +
+      '<div class="sheet-grab"></div>' +
+      '<div class="sheet-group">' +
+      '<div class="sheet-item" data-act="reset"><span class="si">↺</span> Rebuild from answers</div>' +
+      '<div class="sheet-item" data-act="save"><span class="si">⤓</span> Save file</div>' +
+      '<div class="sheet-item" data-act="load"><span class="si">⤒</span> Load file</div>' +
+      '</div>' +
+      '<div class="sheet-group"><div class="sheet-item danger" data-act="new"><span class="si">⌫</span> Start a new brief</div></div>' +
+      '<button class="sheet-cancel" type="button">Cancel</button>' +
+      '</div>';
+    document.body.appendChild(w);
+    const close = () => { w.classList.remove('open'); };
+    w.querySelector('.sheet-scrim').addEventListener('click', close);
+    w.querySelector('.sheet-cancel').addEventListener('click', close);
+    const acts = { reset: el.resetBriefBtn, save: el.saveFileBtn, load: el.loadFileBtn, new: el.newBriefBtn };
+    w.querySelectorAll('.sheet-item').forEach(it => it.addEventListener('click', () => {
+      close();
+      const b = acts[it.dataset.act];
+      if (b) b.click();
+    }));
+    return w;
+  }
+  el.moreBtn.addEventListener('click', () => {
+    if (!sheetEl) sheetEl = buildSheet();
+    sheetEl.classList.add('open');
+  });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       document.querySelectorAll('.refine-overlay:not([hidden])').forEach(o => { o.hidden = true; });
+      document.querySelectorAll('.sheet-wrap.open').forEach(o => o.classList.remove('open'));
     }
   });
   el.coAskForm.addEventListener('submit', async (e) => {
