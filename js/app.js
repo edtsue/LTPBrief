@@ -396,6 +396,21 @@
     }
   });
 
+  /* ---------- theme ---------- */
+  const THEME_KEY = 'ltpbrief.theme';
+  const themeToggle = document.getElementById('themeToggle');
+  const themeLabel = document.getElementById('themeLabel');
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    themeToggle.setAttribute('aria-checked', String(t === 'dark'));
+    themeLabel.textContent = t === 'dark' ? 'Dark' : 'Light';
+    try { localStorage.setItem(THEME_KEY, t); } catch {}
+  }
+  setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+  themeToggle.addEventListener('click', () => {
+    setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
   /* ---------- boot ---------- */
   renderStep();
 })();
