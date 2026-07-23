@@ -59,6 +59,7 @@
     let any = false;
     step.groups.forEach(g => g.fields.forEach(f => {
       if (f.type === 'assets') { if ((data.assets || []).some(r => r && r.name)) any = true; }
+      else if (f.type === 'funnel') { if (f.stages.some(s => data[s.id] && String(data[s.id]).trim() !== '')) any = true; }
       else if (data[f.id] != null && String(data[f.id]).trim() !== '') any = true;
     }));
     return any;
@@ -104,6 +105,7 @@
     wrap.dataset.field = f.id;
 
     if (f.type === 'assets') { return assetsNode(f); }
+    if (f.type === 'funnel') { return funnelNode(f); }
 
     const label = document.createElement('label');
     label.textContent = f.label;
@@ -161,6 +163,34 @@
       input.addEventListener('change', syncOther);
       wrap.appendChild(other);
     }
+    return wrap;
+  }
+
+  function funnelNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full';
+    const funnel = document.createElement('div');
+    funnel.className = 'funnel';
+    const widths = [100, 88, 76, 64, 54];
+    f.stages.forEach((st, i) => {
+      const tier = document.createElement('div');
+      tier.className = 'ftier';
+      tier.style.setProperty('--w', (widths[i] != null ? widths[i] : 54) + '%');
+      tier.style.setProperty('--c', st.color);
+      const lab = document.createElement('span');
+      lab.className = 'fstage';
+      lab.textContent = st.label;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = 'f_' + st.id;
+      input.placeholder = st.placeholder || '';
+      if (data[st.id] != null) input.value = data[st.id];
+      input.addEventListener('input', () => { data[st.id] = input.value; save(); scheduleAssist(); markRail(); });
+      input.addEventListener('blur', () => runAssist());
+      tier.append(lab, input);
+      funnel.appendChild(tier);
+    });
+    wrap.appendChild(funnel);
     return wrap;
   }
 

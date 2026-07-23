@@ -148,6 +148,17 @@ body{
 }
 .field.flag input,.field.flag textarea{border-color:var(--amberLine);box-shadow:0 0 0 3px rgba(251,188,4,.2)}
 
+/* funnel (inverted pyramid) */
+.funnel{display:flex;flex-direction:column;align-items:center;gap:9px;margin-top:2px}
+.ftier{width:var(--w);display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:12px;transition:.18s;
+  background:color-mix(in srgb,var(--c) 13%,var(--field));
+  border:1px solid color-mix(in srgb,var(--c) 38%,transparent);border-left:4px solid var(--c)}
+.ftier:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--c) 26%,transparent)}
+.ftier .fstage{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);flex:none;width:96px}
+.ftier input{flex:1;min-width:0;font-family:inherit;font-size:14px;color:var(--ink);background:var(--field);border:1px solid var(--fieldline);border-radius:9px;padding:8px 12px;transition:.15s}
+.ftier input::placeholder{color:var(--ink3);opacity:.7}
+.ftier input:focus{outline:none;border-color:var(--c)}
+
 /* assets repeater */
 .assets{display:flex;flex-direction:column;gap:10px}
 .asset-row{display:grid;grid-template-columns:1fr 150px 130px 34px;gap:8px;align-items:center}
@@ -270,6 +281,8 @@ body{
   .co-body{overflow:visible}
   .asset-row{grid-template-columns:1fr 1fr;grid-auto-rows:min-content;gap:8px}
   .asset-row .rm{grid-column:2;justify-self:end;width:38px}
+  .ftier{width:100%!important}
+  .ftier .fstage{width:84px}
 }
 @media(max-width:480px){
   .form-view,.brief-view{padding:14px 12px}
