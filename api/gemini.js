@@ -35,7 +35,8 @@ const ASSIST_SCHEMA = {
         properties: {
           severity: { type: 'string', enum: ['tension', 'gap', 'fyi'] },
           title: { type: 'string' },
-          body: { type: 'string' }
+          body: { type: 'string' },
+          field: { type: 'string' }
         },
         required: ['severity', 'title', 'body']
       }
@@ -134,7 +135,7 @@ ${JSON.stringify(data, null, 2)}
 
 Do three things, grounded ONLY in what they wrote:
 0) ack — one short, present-tense line acknowledging the LATEST/most important thing they've captured on this step (e.g. "Tracking a $40–55M US budget for Gemini App."). Keep it under 12 words, specific to their actual content, and reassuring. Always return one.
-1) checks — flag genuine contradictions or tensions between THIS step and any earlier step, plus real gaps or opportunities. Be specific and reference the actual values. Severity: "tension" (conflicts), "gap" (something required is missing, e.g. an empty funnel stage), "fyi" (a helpful observation/opportunity). Return 0–3. Do NOT invent problems; if it's consistent, return none.
+1) checks — flag genuine contradictions or tensions between THIS step and any earlier step, plus real gaps or opportunities. Be specific and reference the actual values. Severity: "tension" (conflicts), "gap" (something required is missing, e.g. an empty funnel stage), "fyi" (a helpful observation/opportunity). Return 0–3. Do NOT invent problems; if it's consistent, return none. If a check points at ONE specific field the user should fix, set its "field" to that exact fieldId (valid ids: ${Object.values(FIELD_IDS).flat().join(', ')}). Otherwise omit "field".
 2) suggestions — offer up to 2 concrete pre-fill values for EMPTY or thin fields on this step only. Valid fieldId values for this step: ${ids.join(', ')}. "value" is the exact text to drop into the field; keep it tight and editable; "label" is a short button title; "rationale" is one line on why. Only suggest where you can add real value from context. Never suggest for the "assets" field.
 
 Be concise. If nothing is worth saying, return empty arrays.`;
@@ -149,6 +150,17 @@ Structure with a top "# LTP Brief — <PA · Market · Year>" title, then "## Co
 
 Intake (JSON):
 ${JSON.stringify(data, null, 2)}`;
+}
+
+function askPrompt(stepId, data, question) {
+  return `${FRAMEWORK}
+
+The user is on step "${stepId}" of their LTP intake and asks you a question. Answer helpfully and concisely (2–4 sentences), grounded in the brief they've entered and the LTP framework. If they ask you to draft or word something, give a tight, ready-to-use draft. Don't invent facts they haven't provided.
+
+Their brief so far (JSON):
+${JSON.stringify(data || {}, null, 2)}
+
+Question: ${question}`;
 }
 
 function refinePrompt(heading, content, instruction) {
@@ -235,6 +247,15 @@ module.exports = async (req, res) => {
         generationConfig: { temperature: 0.4 }
       });
       res.status(200).json({ markdown });
+      return;
+    }
+
+    if (action === 'ask') {
+      const answer = await callGemini({
+        contents: [{ role: 'user', parts: [{ text: askPrompt(stepId, data || {}, payload.question || '') }] }],
+        generationConfig: { temperature: 0.5 }
+      });
+      res.status(200).json({ answer });
       return;
     }
 

@@ -100,10 +100,12 @@
         <button class="co-tool" id="interviewBtn" type="button" data-tip="Answer a few questions — Gemini maps them to the right fields"><svg class="gstar"><use href="#star" /></svg> Interview me</button>
       </div>
       <div class="co-body" id="coBody"></div>
-      <div class="co-ask">
+      <div class="co-answer" id="coAnswer" hidden></div>
+      <form class="co-ask" id="coAskForm" autocomplete="off">
         <svg class="gstar"><use href="#star" /></svg>
-        <span>Assists as you fill this step</span>
-      </div>
+        <input type="text" id="coAskInput" placeholder="Ask Gemini about this step…" />
+        <button type="submit" class="co-ask-send" id="coAskSend" aria-label="Ask">↑</button>
+      </form>
     </aside>
   </div>
 

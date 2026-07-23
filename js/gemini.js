@@ -48,6 +48,10 @@ const Gemini = (() => {
     // One interview turn. -> { message, updates:[{fieldId,value}], done }
     interview(data, history) {
       return call('interview', { data, history });
+    },
+    // Free-form question about the current step. -> { answer }
+    ask(stepId, data, question) {
+      return call('ask', { stepId, data, question });
     }
   };
 })();

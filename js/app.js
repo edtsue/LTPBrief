@@ -9,6 +9,11 @@
     catch { return []; }
   })();
   const FUNNEL_WIDTHS = [100, 85, 70, 57, 46];
+  const FIELD_STEP = {};
+  steps.forEach((s, i) => s.groups.forEach(g => g.fields.forEach(f => {
+    if (f.type === 'funnel') f.stages.forEach(st => { FIELD_STEP[st.id] = i; });
+    else if (f.type !== 'dropzone') { FIELD_STEP[f.id] = i; if (f.otherField) FIELD_STEP[f.id + 'Other'] = i; }
+  })));
 
   const el = {
     steps: document.getElementById('steps'),
@@ -22,6 +27,9 @@
     saveState: document.getElementById('saveState'),
     coStatus: document.getElementById('coStatus'),
     coBody: document.getElementById('coBody'),
+    coAnswer: document.getElementById('coAnswer'),
+    coAskForm: document.getElementById('coAskForm'),
+    coAskInput: document.getElementById('coAskInput'),
     interviewBtn: document.getElementById('interviewBtn'),
     tourBtn: document.getElementById('tourBtn'),
     formView: document.getElementById('formView'),
@@ -263,11 +271,13 @@
     const r = await Gemini.ingest(payload);
     let filled = 0;
     const f = r.fields || {};
+    const snapshot = { data: JSON.parse(JSON.stringify(data)), editedBrief: editedBrief };
     Object.keys(f).forEach(k => { if (f[k] && String(f[k]).trim()) { data[k] = String(f[k]); filled++; } });
     if (Array.isArray(r.assets) && r.assets.length) {
       data.assets = r.assets.map(a => ({ name: a.name || '', status: a.status || '', ready: a.ready || '' }));
       filled++;
     }
+    if (filled) undoState = snapshot;
     save(); renderStep();
     return { filled, summary: r.summary };
   }
@@ -277,7 +287,8 @@
     try {
       const payload = await fileToPayload(file);
       const res = await applyIngest(payload);
-      toast(res.filled ? (res.summary || `Filled ${res.filled} field${res.filled > 1 ? 's' : ''} — review your answers`) : 'Nothing could be extracted from that file');
+      if (res.filled) toastAction(res.summary || `Filled ${res.filled} field${res.filled > 1 ? 's' : ''} — review your answers`, 'Undo', doUndo);
+      else toast('Nothing could be extracted from that file');
     } catch (e) {
       toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not read that file.');
     }
@@ -359,10 +370,11 @@
       suggest.innerHTML = '<svg class="gstar sp"><use href="#star"/></svg> Thinking…';
       try {
         const r = await Gemini.funnelKpis(data);
+        pushUndo();
         f.stages.forEach(st => {
           if (r[st.id]) { data[st.id] = r[st.id]; const inp = document.getElementById('f_' + st.id); if (inp) inp.value = r[st.id]; }
         });
-        save(); markRail(); runAssist(); toast('Funnel KPIs suggested');
+        save(); markRail(); runAssist(); toastAction('Funnel KPIs added', 'Undo', doUndo);
       } catch (e) { toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not suggest just now.'); }
       suggest.disabled = false; suggest.innerHTML = orig;
     });
@@ -545,6 +557,11 @@
       const div = document.createElement('div');
       div.className = 'assist ' + sev;
       div.innerHTML = `<div class="hd">${icon} ${escapeHtml(c.title || 'Check')}</div>${escapeHtml(c.body || '')}`;
+      if (c.field && FIELD_STEP[c.field] != null) {
+        div.classList.add('clickable');
+        div.innerHTML += '<div class="assist-go">Go to field →</div>';
+        div.addEventListener('click', () => goToField(c.field));
+      }
       el.coBody.appendChild(div);
     });
     suggestions.forEach(sg => {
@@ -572,6 +589,7 @@
   }
 
   function applySuggestion(sg) {
+    pushUndo();
     data[sg.fieldId] = sg.value;
     save();
     const input = document.getElementById('f_' + sg.fieldId);
@@ -582,6 +600,7 @@
     }
     markRail();
     runAssist();
+    toastAction('Inserted', 'Undo', doUndo);
   }
 
   /* ---------- brief view ---------- */
@@ -717,6 +736,7 @@
       let md = (res.markdown || '').trim();
       if (!md) { loading.hidden = true; toast('No change returned'); return; }
       if (!/^#{1,3}\s/.test(md)) md = `## ${heading}\n\n${md}`;
+      pushUndo();
       const tmp = document.createElement('div');
       tmp.innerHTML = Brief.toHtml(md);
       const oldNodes = sectionNodes(h2);
@@ -726,7 +746,7 @@
       decorateSections();
       saveBrief();
       closeRefine();
-      toast('Section refined');
+      toastAction('Section refined', 'Undo', doUndo);
     } catch (err) {
       loading.hidden = true;
       toast(err && err.status === 503 ? 'Assist is offline — add the Gemini key.' : 'Could not refine just now.');
@@ -780,10 +800,11 @@
         const use = document.createElement('button');
         use.type = 'button'; use.className = 'rf-chip'; use.textContent = 'Use this';
         use.addEventListener('click', () => {
+          pushUndo();
           data[fieldId] = o.definition || o.title;
           const inp = document.getElementById('f_' + fieldId);
           if (inp) inp.value = data[fieldId];
-          save(); markRail(); runAssist(); audModal.close(); toast('Audience added');
+          save(); markRail(); runAssist(); audModal.close(); toastAction('Audience added', 'Undo', doUndo);
         });
         c.appendChild(use); list.appendChild(c);
       });
@@ -831,7 +852,8 @@
       if (ingestFileData) payload.file = ingestFileData;
       const res = await applyIngest(payload);
       ingestModal.close();
-      toast(res.filled ? (res.summary || `Filled ${res.filled} field${res.filled > 1 ? 's' : ''} — review your answers`) : 'Nothing could be extracted from that');
+      if (res.filled) toastAction(res.summary || `Filled ${res.filled} field${res.filled > 1 ? 's' : ''} — review your answers`, 'Undo', doUndo);
+      else toast('Nothing could be extracted from that');
     } catch (e) {
       load.hidden = true; go.disabled = false;
       toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not read that document.');
@@ -891,12 +913,60 @@
   /* ---------- helpers ---------- */
   function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
   let toastTimer = null;
-  function toast(msg) {
+  function toastEl() {
     let t = document.querySelector('.toast');
     if (!t) { t = document.createElement('div'); t.className = 'toast'; document.body.appendChild(t); }
+    return t;
+  }
+  function toast(msg) {
+    const t = toastEl();
     t.textContent = msg; t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
+  function toastAction(msg, actionLabel, fn) {
+    const t = toastEl();
+    t.innerHTML = '';
+    const span = document.createElement('span'); span.textContent = msg; t.appendChild(span);
+    const b = document.createElement('button'); b.className = 'toast-act'; b.textContent = actionLabel;
+    b.addEventListener('click', () => { fn(); t.classList.remove('show'); });
+    t.appendChild(b);
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 6500);
+  }
+
+  /* ---------- undo for AI actions ---------- */
+  let undoState = null;
+  function pushUndo() { undoState = { data: JSON.parse(JSON.stringify(data)), editedBrief: editedBrief }; }
+  function doUndo() {
+    if (!undoState) return;
+    data = undoState.data;
+    editedBrief = undoState.editedBrief;
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(data));
+      if (editedBrief) localStorage.setItem(BRIEF_KEY, editedBrief); else localStorage.removeItem(BRIEF_KEY);
+    } catch {}
+    undoState = null;
+    if (onBrief) showBrief(); else renderStep();
+    toast('Reverted');
+  }
+
+  /* ---------- jump to a field from a check ---------- */
+  function goToField(fieldId) {
+    const idx = FIELD_STEP[fieldId];
+    if (idx == null) return;
+    if (onBrief) showForm();
+    goTo(idx);
+    setTimeout(() => {
+      const input = document.getElementById('f_' + fieldId);
+      if (input) {
+        input.focus();
+        const fld = input.closest('.field');
+        if (fld) { fld.classList.add('flag'); setTimeout(() => fld.classList.remove('flag'), 1400); }
+        input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }, 70);
   }
 
   /* ---------- events ---------- */
@@ -909,6 +979,23 @@
   });
   el.interviewBtn.addEventListener('click', openInterview);
   el.tourBtn.addEventListener('click', startTour);
+  el.coAskForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = el.coAskInput.value.trim();
+    if (!q) return;
+    el.coAskInput.value = '';
+    el.coAnswer.hidden = false;
+    el.coAnswer.innerHTML = '<button class="ca-x" type="button" aria-label="Dismiss">×</button>' +
+      '<div class="ca-q">' + escapeHtml(q) + '</div>' +
+      '<div class="ca-a"><svg class="gstar sp"><use href="#star"/></svg> Thinking…</div>';
+    el.coAnswer.querySelector('.ca-x').addEventListener('click', () => { el.coAnswer.hidden = true; });
+    try {
+      const r = await Gemini.ask(onBrief ? 'brief' : steps[current].id, data, q);
+      el.coAnswer.querySelector('.ca-a').innerHTML = '<svg class="gstar"><use href="#star"/></svg><span>' + escapeHtml(r.answer || '') + '</span>';
+    } catch (err) {
+      el.coAnswer.querySelector('.ca-a').textContent = err && err.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not answer just now.';
+    }
+  });
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
   el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });
