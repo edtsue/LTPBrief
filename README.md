@@ -31,7 +31,7 @@ npm run dev               # vercel dev
 
 | Variable | Purpose |
 | --- | --- |
-| `GEMINI_API_KEY` | Server-side key for the assistant (required for live assist) |
+| `GEMINI_KEY` | Server-side key for the assistant (required for live assist). `GEMINI_API_KEY` also accepted. |
 | `GEMINI_MODEL` | Optional model override (default `gemini-2.5-flash`) |
 
 Without a key the form still works, saves, and exports — only the live assist is disabled.
