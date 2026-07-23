@@ -237,7 +237,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'field full';
     wrap.appendChild(makeLabel(f.label, f.help));
-    const MIN = 0, MAX = 200, STEP = 5;
+    const MIN = 1, MAX = 1000, STEP = 5;
     let lo = 40, hi = 55;
     const m = String(data.budget || '').match(/(\d+)\s*M[^\d]+(\d+)\s*M/i);
     if (m) { lo = +m[1]; hi = +m[2]; }
