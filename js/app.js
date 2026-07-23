@@ -349,7 +349,24 @@
     const name = 'LTP-Brief-' + (data.productArea || 'draft').replace(/\s+/g, '-') + '.md';
     Brief.download(Brief.toMarkdown(data), name);
   });
-  el.gdocBtn.addEventListener('click', () => toast('Google Doc export is coming — needs a one-time Google sign-in setup.'));
+  el.gdocBtn.addEventListener('click', async () => {
+    el.gdocBtn.disabled = true;
+    const original = el.gdocBtn.textContent;
+    try {
+      await GDoc.exportDoc(
+        () => el.briefDoc.innerHTML,
+        () => 'LTP Brief — ' + (data.productArea || 'Draft'),
+        (msg) => { el.gdocBtn.textContent = msg; }
+      );
+      toast('Opened your new Google Doc');
+    } catch (err) {
+      if (err && err.code === 'not-configured') toast('Google Doc export needs a one-time setup — coming shortly.');
+      else toast(err && err.message ? err.message : 'Could not create the Google Doc.');
+    } finally {
+      el.gdocBtn.textContent = original;
+      el.gdocBtn.disabled = false;
+    }
+  });
 
   /* ---------- boot ---------- */
   renderStep();
