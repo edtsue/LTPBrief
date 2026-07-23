@@ -43,7 +43,8 @@ const GDoc = (() => {
         },
         error_callback: () => reject(new Error('Sign-in was cancelled.'))
       });
-      tokenClient.requestAccessToken({ prompt: '' });
+      // Always show the account chooser so the user signs into the right Google account.
+      tokenClient.requestAccessToken({ prompt: 'select_account' });
     });
   }
 
