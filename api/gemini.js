@@ -1,7 +1,7 @@
 // Serverless proxy for the intake assistant.
 // Keeps the API key server-side and shapes two actions: `assist` and `synthesize`.
 
-const MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY;
 
 // Condensed long-term-planning framework the model reasons against.
