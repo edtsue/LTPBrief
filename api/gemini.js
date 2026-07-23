@@ -56,6 +56,59 @@ const ASSIST_SCHEMA = {
   required: ['checks', 'suggestions']
 };
 
+// Field catalog used by document-ingest and interview extraction.
+const CATALOG = `Field ids you may fill (all optional — only include what the input clearly supports):
+- productArea: Product Area / brand (e.g. Gemini App, Pixel, Search)
+- market: geography (e.g. United States)
+- planningYear: e.g. FY2027
+- budget: budget or range (e.g. $40M-$55M)
+- launchDates: key launch dates / moments
+- internalDates: critical internal dates (sprints, reviews, locks)
+- stakeholders: client + agency owners
+- constraints: constraints & mandatories (brand safety, non-negotiables)
+- xpaOverlaps: cross-PA overlaps (domains/audiences/flighting)
+- growthDriver: one driver; prefer one of [Increase user base, Recruit new users, Steal competitive share, Increase volume of transactions or engagements, Increase volume of use, Increase frequency of use, Increase revenue per purchase, Convince people to pay more, A diversified product range, Open new products and services]; if none fit, set growthDriver to "Other" and put wording in growthDriverOther
+- growthDriverOther: free-text growth driver when growthDriver is "Other"
+- sourceAudience: specific source-of-growth audience
+- commsStrategy: barriers, planning principles, role of channels
+- competitors: key competitors
+- categoryDynamics: where the brand leads vs lags
+- whiteSpace: where the brand can win
+- kpiAwareness, kpiConsideration, kpiIntent, kpiPurchase, kpiLoyalty: one KPI per funnel stage
+- culturalTerritories: cultural territories / community angles`;
+
+const FIELD_PROPS = {};
+['productArea','market','planningYear','budget','launchDates','internalDates','stakeholders','constraints','xpaOverlaps','growthDriver','growthDriverOther','sourceAudience','commsStrategy','competitors','categoryDynamics','whiteSpace','kpiAwareness','kpiConsideration','kpiIntent','kpiPurchase','kpiLoyalty','culturalTerritories']
+  .forEach(k => { FIELD_PROPS[k] = { type: 'string' }; });
+
+const INGEST_SCHEMA = {
+  type: 'object',
+  properties: {
+    fields: { type: 'object', properties: FIELD_PROPS },
+    assets: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, status: { type: 'string' }, ready: { type: 'string' } } } },
+    summary: { type: 'string' }
+  }
+};
+const FUNNEL_SCHEMA = {
+  type: 'object',
+  properties: { kpiAwareness: { type: 'string' }, kpiConsideration: { type: 'string' }, kpiIntent: { type: 'string' }, kpiPurchase: { type: 'string' }, kpiLoyalty: { type: 'string' } },
+  required: ['kpiAwareness', 'kpiConsideration', 'kpiIntent', 'kpiPurchase', 'kpiLoyalty']
+};
+const AUDIENCE_SCHEMA = {
+  type: 'object',
+  properties: { options: { type: 'array', items: { type: 'object', properties: { title: { type: 'string' }, definition: { type: 'string' }, rationale: { type: 'string' } }, required: ['title', 'definition', 'rationale'] } } },
+  required: ['options']
+};
+const INTERVIEW_SCHEMA = {
+  type: 'object',
+  properties: {
+    message: { type: 'string' },
+    updates: { type: 'array', items: { type: 'object', properties: { fieldId: { type: 'string' }, value: { type: 'string' } }, required: ['fieldId', 'value'] } },
+    done: { type: 'boolean' }
+  },
+  required: ['message', 'done']
+};
+
 async function callGemini(body) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
   const r = await fetch(url, {
@@ -111,6 +164,45 @@ Current section:
 ${content}`;
 }
 
+function funnelPrompt(data) {
+  return `${FRAMEWORK}
+
+Propose one measurable, media-impactable KPI for EACH funnel stage (Awareness, Consideration, Intent, Purchase/Action, Loyalty), grounded in the intake so far. Keep each short — a metric, optionally a target. Return all five.
+
+Intake (JSON):
+${JSON.stringify(data, null, 2)}`;
+}
+function audiencePrompt(data) {
+  return `${FRAMEWORK}
+
+Propose 2-3 candidate source-of-growth audiences. Go deeper than a broad demographic — per the framework, brand love drives switching (e.g. "Pixel lovers", not just "competitive users"). For each: a short title, a specific 1-2 sentence definition, and a one-line rationale for why they'll drive growth and why the brand has the right to win them. Ground them in the intake.
+
+Intake (JSON):
+${JSON.stringify(data, null, 2)}`;
+}
+function ingestPrompt() {
+  return `${FRAMEWORK}
+
+You are extracting an LTP intake brief from the attached/pasted source material. Fill only fields the source clearly supports; leave the rest empty — never invent. Also extract any listed creative into "assets" (name, status, ready). Give a one-line "summary" of what you filled.
+
+${CATALOG}`;
+}
+function interviewPrompt(data, history) {
+  return `${FRAMEWORK}
+
+You are running a friendly, efficient intake interview to complete the LTP brief. Ask ONE short, specific question at a time for the most valuable missing field next. From the user's latest answer, produce "updates" (fieldId + value) mapping their answer to the right field(s), then set "message" to your next question. Use valid field ids only.
+
+${CATALOG}
+
+When the brief has solid coverage across all five sections, set done=true and make "message" a brief wrap-up. Otherwise done=false.
+
+Current data (JSON):
+${JSON.stringify(data, null, 2)}
+
+Conversation so far (JSON):
+${JSON.stringify(history || [], null, 2)}`;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   if (!API_KEY) { res.status(503).json({ error: 'Assistant not configured' }); return; }
@@ -141,6 +233,47 @@ module.exports = async (req, res) => {
         generationConfig: { temperature: 0.4 }
       });
       res.status(200).json({ markdown });
+      return;
+    }
+
+    if (action === 'funnel-kpis') {
+      const text = await callGemini({
+        contents: [{ role: 'user', parts: [{ text: funnelPrompt(data || {}) }] }],
+        generationConfig: { temperature: 0.4, responseMimeType: 'application/json', responseSchema: FUNNEL_SCHEMA }
+      });
+      res.status(200).json(JSON.parse(text));
+      return;
+    }
+
+    if (action === 'audiences') {
+      const text = await callGemini({
+        contents: [{ role: 'user', parts: [{ text: audiencePrompt(data || {}) }] }],
+        generationConfig: { temperature: 0.6, responseMimeType: 'application/json', responseSchema: AUDIENCE_SCHEMA }
+      });
+      res.status(200).json(JSON.parse(text));
+      return;
+    }
+
+    if (action === 'ingest') {
+      const parts = [{ text: ingestPrompt() }];
+      if (payload.file && payload.file.data) {
+        parts.push({ inline_data: { mime_type: payload.file.mimeType || 'application/pdf', data: payload.file.data } });
+      }
+      if (payload.text) parts.push({ text: 'Pasted source:\n' + String(payload.text).slice(0, 60000) });
+      const text = await callGemini({
+        contents: [{ role: 'user', parts }],
+        generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: INGEST_SCHEMA }
+      });
+      res.status(200).json(JSON.parse(text));
+      return;
+    }
+
+    if (action === 'interview') {
+      const text = await callGemini({
+        contents: [{ role: 'user', parts: [{ text: interviewPrompt(data || {}, payload.history) }] }],
+        generationConfig: { temperature: 0.5, responseMimeType: 'application/json', responseSchema: INTERVIEW_SCHEMA }
+      });
+      res.status(200).json(JSON.parse(text));
       return;
     }
 

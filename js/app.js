@@ -17,6 +17,8 @@
     saveState: document.getElementById('saveState'),
     coStatus: document.getElementById('coStatus'),
     coBody: document.getElementById('coBody'),
+    ingestBtn: document.getElementById('ingestBtn'),
+    interviewBtn: document.getElementById('interviewBtn'),
     formView: document.getElementById('formView'),
     briefView: document.getElementById('briefView'),
     briefDoc: document.getElementById('briefDoc'),
@@ -163,12 +165,40 @@
       input.addEventListener('change', syncOther);
       wrap.appendChild(other);
     }
+
+    // Optional AI helper button under the field (e.g. audience builder).
+    if (f.aiAction === 'audiences') {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ai-mini';
+      b.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest audiences';
+      b.addEventListener('click', () => openAudiences(f.id));
+      wrap.appendChild(b);
+    }
     return wrap;
   }
 
   function funnelNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field full';
+
+    const suggest = document.createElement('button');
+    suggest.type = 'button'; suggest.className = 'ai-mini';
+    suggest.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest full-funnel KPIs';
+    suggest.addEventListener('click', async () => {
+      suggest.disabled = true;
+      const orig = suggest.innerHTML;
+      suggest.innerHTML = '<svg class="gstar sp"><use href="#star"/></svg> Thinking…';
+      try {
+        const r = await Gemini.funnelKpis(data);
+        f.stages.forEach(st => {
+          if (r[st.id]) { data[st.id] = r[st.id]; const inp = document.getElementById('f_' + st.id); if (inp) inp.value = r[st.id]; }
+        });
+        save(); markRail(); runAssist(); toast('Funnel KPIs suggested');
+      } catch (e) { toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not suggest just now.'); }
+      suggest.disabled = false; suggest.innerHTML = orig;
+    });
+    wrap.appendChild(suggest);
+
     const funnel = document.createElement('div');
     funnel.className = 'funnel';
     const widths = [100, 85, 70, 57, 46];
@@ -518,6 +548,153 @@
     el.genBtn.disabled = false;
   }
 
+  /* ---------- reusable modal ---------- */
+  function makeModal() {
+    const ov = document.createElement('div');
+    ov.className = 'refine-overlay'; ov.hidden = true;
+    const card = document.createElement('div');
+    card.className = 'refine-card';
+    ov.appendChild(card);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.hidden = true; });
+    document.body.appendChild(ov);
+    return { ov, card, open() { ov.hidden = false; }, close() { ov.hidden = true; } };
+  }
+  function modalClose(m) { m.card.querySelectorAll('.rf-close').forEach(b => b.addEventListener('click', () => m.close())); }
+
+  /* ---------- audience builder ---------- */
+  let audModal = null;
+  async function openAudiences(fieldId) {
+    if (!audModal) audModal = makeModal();
+    audModal.card.innerHTML = '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Candidate audiences<button class="rf-close" type="button">×</button></div><div class="rf-loading"><svg class="gstar sp"><use href="#star"/></svg> Thinking…</div>';
+    modalClose(audModal); audModal.open();
+    try {
+      const r = await Gemini.audiences(data);
+      let html = '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Candidate audiences<button class="rf-close" type="button">×</button></div><div class="aud-list"></div>';
+      audModal.card.innerHTML = html;
+      const list = audModal.card.querySelector('.aud-list');
+      (r.options || []).forEach(o => {
+        const c = document.createElement('div');
+        c.className = 'aud-card';
+        c.innerHTML = `<div class="aud-t">${escapeHtml(o.title || '')}</div><div class="aud-d">${escapeHtml(o.definition || '')}</div><div class="aud-r">${escapeHtml(o.rationale || '')}</div>`;
+        const use = document.createElement('button');
+        use.type = 'button'; use.className = 'rf-chip'; use.textContent = 'Use this';
+        use.addEventListener('click', () => {
+          data[fieldId] = o.definition || o.title;
+          const inp = document.getElementById('f_' + fieldId);
+          if (inp) inp.value = data[fieldId];
+          save(); markRail(); runAssist(); audModal.close(); toast('Audience added');
+        });
+        c.appendChild(use); list.appendChild(c);
+      });
+      modalClose(audModal);
+    } catch (e) {
+      audModal.card.innerHTML = '<div class="refine-hd">Candidate audiences<button class="rf-close" type="button">×</button></div><div class="co-empty">' + (e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not fetch suggestions.') + '</div>';
+      modalClose(audModal);
+    }
+  }
+
+  /* ---------- document ingest ---------- */
+  let ingestModal = null, ingestFile = null;
+  function openIngest() {
+    if (!ingestModal) ingestModal = makeModal();
+    ingestFile = null;
+    ingestModal.card.innerHTML =
+      '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Start from a document<button class="rf-close" type="button">×</button></div>' +
+      '<p class="co-empty" style="margin:-2px 0 10px">Paste text or upload a PDF / image / doc. Gemini fills what it can — you review before it saves.</p>' +
+      '<textarea class="rf-custom ing-text" rows="5" placeholder="Paste last year&rsquo;s LTP, a research summary, a client email&hellip;"></textarea>' +
+      '<div class="ing-file"><label class="rf-chip ing-pick">Choose file<input type="file" accept=".pdf,.txt,.md,image/*" hidden></label><span class="ing-name co-empty"></span></div>' +
+      '<div class="rf-foot"><button class="btn primary ing-go" type="button">Extract &amp; fill</button></div>' +
+      '<div class="rf-loading ing-load" hidden><svg class="gstar sp"><use href="#star"/></svg> Reading&hellip;</div>';
+    modalClose(ingestModal);
+    const fileInput = ingestModal.card.querySelector('input[type=file]');
+    const nameEl = ingestModal.card.querySelector('.ing-name');
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files[0];
+      if (!f) { ingestFile = null; nameEl.textContent = ''; return; }
+      const reader = new FileReader();
+      reader.onload = () => { ingestFile = { mimeType: f.type || 'application/octet-stream', data: String(reader.result).split(',')[1] }; nameEl.textContent = f.name; };
+      reader.readAsDataURL(f);
+    });
+    ingestModal.card.querySelector('.ing-go').addEventListener('click', runIngest);
+    ingestModal.open();
+  }
+  async function runIngest() {
+    const text = ingestModal.card.querySelector('.ing-text').value.trim();
+    if (!text && !ingestFile) { toast('Paste text or choose a file first'); return; }
+    const load = ingestModal.card.querySelector('.ing-load');
+    const go = ingestModal.card.querySelector('.ing-go');
+    load.hidden = false; go.disabled = true;
+    try {
+      const payload = {};
+      if (text) payload.text = text;
+      if (ingestFile) payload.file = ingestFile;
+      const r = await Gemini.ingest(payload);
+      let filled = 0;
+      const f = r.fields || {};
+      Object.keys(f).forEach(k => { if (f[k] && String(f[k]).trim()) { data[k] = String(f[k]); filled++; } });
+      if (Array.isArray(r.assets) && r.assets.length) {
+        data.assets = r.assets.map(a => ({ name: a.name || '', status: a.status || '', ready: a.ready || '' }));
+        filled++;
+      }
+      save(); renderStep();
+      ingestModal.close();
+      toast(filled ? (r.summary || `Filled ${filled} field${filled > 1 ? 's' : ''} — review your answers`) : 'Nothing could be extracted from that');
+    } catch (e) {
+      load.hidden = true; go.disabled = false;
+      toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not read that document.');
+    }
+  }
+
+  /* ---------- interview mode ---------- */
+  let ivModal = null, ivHistory = [];
+  function openInterview() {
+    ivHistory = [];
+    if (!ivModal) ivModal = makeModal();
+    ivModal.card.className = 'refine-card iv-card';
+    ivModal.card.innerHTML =
+      '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Interview me<button class="rf-close" type="button">×</button></div>' +
+      '<div class="iv-log"></div>' +
+      '<div class="iv-input"><input type="text" placeholder="Type your answer&hellip;" disabled><button class="btn primary iv-send" type="button" disabled>Send</button></div>';
+    ivModal.card.querySelector('.rf-close').addEventListener('click', () => { ivModal.close(); renderStep(); });
+    const input = ivModal.card.querySelector('.iv-input input');
+    const send = ivModal.card.querySelector('.iv-send');
+    const submit = () => { const v = input.value.trim(); if (v) { input.value = ''; ivStep(v); } };
+    send.addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    ivModal.open();
+    ivStep(null);
+  }
+  function ivAddMsg(role, text) {
+    const log = ivModal.card.querySelector('.iv-log');
+    const m = document.createElement('div');
+    m.className = 'iv-msg ' + role;
+    m.textContent = text;
+    log.appendChild(m); log.scrollTop = log.scrollHeight;
+    return m;
+  }
+  async function ivStep(userText) {
+    const input = ivModal.card.querySelector('.iv-input input');
+    const send = ivModal.card.querySelector('.iv-send');
+    if (userText) { ivAddMsg('user', userText); ivHistory.push({ role: 'user', text: userText }); }
+    input.disabled = true; send.disabled = true;
+    const thinking = ivAddMsg('ai thinking', '…');
+    try {
+      const r = await Gemini.interview(data, ivHistory);
+      (r.updates || []).forEach(u => { if (u.fieldId && u.value != null) data[u.fieldId] = u.value; });
+      save(); markRail();
+      thinking.textContent = r.message || '';
+      thinking.classList.remove('thinking');
+      ivHistory.push({ role: 'assistant', text: r.message || '' });
+      if (r.done) {
+        input.placeholder = 'Interview complete ✓'; input.disabled = true; send.disabled = true;
+        renderStep(); toast('Interview complete — your answers are filled');
+      } else { input.disabled = false; send.disabled = false; input.focus(); }
+    } catch (e) {
+      thinking.textContent = e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Something went wrong — try again.';
+      thinking.classList.remove('thinking');
+    }
+  }
+
   /* ---------- helpers ---------- */
   function escapeHtml(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
   let toastTimer = null;
@@ -537,6 +714,8 @@
       showBrief();
     } else goTo(current + 1);
   });
+  el.ingestBtn.addEventListener('click', openIngest);
+  el.interviewBtn.addEventListener('click', openInterview);
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
   el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });

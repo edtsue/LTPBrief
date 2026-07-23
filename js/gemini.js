@@ -32,6 +32,22 @@ const Gemini = (() => {
     // -> { markdown }
     refine(heading, content, instruction) {
       return call('refine', { heading, content, instruction });
+    },
+    // Suggest a KPI for every funnel stage. -> { kpiAwareness, ... }
+    funnelKpis(data) {
+      return call('funnel-kpis', { data });
+    },
+    // Candidate source-of-growth audiences. -> { options: [{title,definition,rationale}] }
+    audiences(data) {
+      return call('audiences', { data });
+    },
+    // Extract a brief from pasted text or a file. -> { fields, assets, summary }
+    ingest(payload) {
+      return call('ingest', payload);
+    },
+    // One interview turn. -> { message, updates:[{fieldId,value}], done }
+    interview(data, history) {
+      return call('interview', { data, history });
     }
   };
 })();

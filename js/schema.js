@@ -47,7 +47,7 @@ const SCHEMA = {
               ]
             },
             {
-              id: 'sourceAudience', label: 'Source-of-growth audience', type: 'textarea', full: true,
+              id: 'sourceAudience', label: 'Source-of-growth audience', type: 'textarea', full: true, aiAction: 'audiences',
               placeholder: 'Go deeper than the broad definition. Who, specifically, will drive growth — and why you have the right to win them.'
             },
             {
