@@ -85,11 +85,11 @@ const SCHEMA = {
             {
               id: 'funnelKpis', type: 'funnel',
               stages: [
-                { id: 'kpiAwareness', label: 'Awareness', color: '#4285F4', placeholder: 'e.g. Ad recall lift' },
-                { id: 'kpiConsideration', label: 'Consideration', color: '#9B72CB', placeholder: 'e.g. Consideration +6pt' },
-                { id: 'kpiIntent', label: 'Intent', color: '#D96570', placeholder: 'e.g. App-store visits' },
-                { id: 'kpiPurchase', label: 'Purchase / Action', color: '#F9AB00', placeholder: 'e.g. Installs / CPI' },
-                { id: 'kpiLoyalty', label: 'Loyalty', color: '#34A853', placeholder: 'e.g. DAU / D30 retention' }
+                { id: 'kpiAwareness', label: 'Awareness', color: '#EA4335', placeholder: 'e.g. Ad recall lift' },
+                { id: 'kpiConsideration', label: 'Consideration', color: '#34A853', placeholder: 'e.g. Consideration +6pt' },
+                { id: 'kpiIntent', label: 'Intent', color: '#FBBC04', placeholder: 'e.g. App-store visits' },
+                { id: 'kpiPurchase', label: 'Purchase / Action', color: '#4285F4', placeholder: 'e.g. Installs / CPI' },
+                { id: 'kpiLoyalty', label: 'Loyalty', color: '#9B72CB', placeholder: 'e.g. DAU / D30 retention' }
               ]
             }
           ]

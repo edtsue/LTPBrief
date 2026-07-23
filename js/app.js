@@ -171,7 +171,7 @@
     wrap.className = 'field full';
     const funnel = document.createElement('div');
     funnel.className = 'funnel';
-    const widths = [100, 88, 76, 64, 54];
+    const widths = [100, 85, 70, 57, 46];
     f.stages.forEach((st, i) => {
       const tier = document.createElement('div');
       tier.className = 'ftier';
