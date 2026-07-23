@@ -38,7 +38,7 @@ const SCHEMA = {
         {
           fields: [
             {
-              id: 'growthDriver', label: 'Source of brand growth', type: 'select', full: true,
+              id: 'growthDriver', label: 'Source of brand growth (select all that apply)', type: 'pills', full: true,
               otherField: true,
               optgroups: [
                 { label: 'Increase purchase volume', options: ['Increase user base', 'Recruit new users', 'Steal competitive share', 'Increase volume of transactions or engagements', 'Increase volume of use', 'Increase frequency of use'] },

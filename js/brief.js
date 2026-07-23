@@ -40,7 +40,12 @@ const Brief = (() => {
     L.push('');
 
     L.push('## Growth Strategy', '');
-    const driver = val(data, 'growthDriver') === 'Other' ? val(data, 'growthDriverOther') : val(data, 'growthDriver');
+    let driverList = Array.isArray(data.growthDriver) ? data.growthDriver.slice() : (data.growthDriver ? [String(data.growthDriver)] : []);
+    if (driverList.includes('Other')) {
+      driverList = driverList.filter(x => x !== 'Other');
+      if (val(data, 'growthDriverOther')) driverList.push(val(data, 'growthDriverOther'));
+    }
+    const driver = driverList.join(', ');
     if (driver) L.push(`- **Source of brand growth:** ${driver}`);
     if (val(data, 'sourceAudience')) L.push(`- **${F['sourceAudience']}:** ${val(data, 'sourceAudience')}`);
     if (val(data, 'commsStrategy')) L.push(`- **${F['commsStrategy']}:** ${val(data, 'commsStrategy')}`);

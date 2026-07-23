@@ -62,6 +62,7 @@
     step.groups.forEach(g => g.fields.forEach(f => {
       if (f.type === 'assets') { if ((data.assets || []).some(r => r && r.name)) any = true; }
       else if (f.type === 'funnel') { if (f.stages.some(s => data[s.id] && String(data[s.id]).trim() !== '')) any = true; }
+      else if (f.type === 'pills') { const v = data[f.id]; if (Array.isArray(v) ? v.length : (v && String(v).trim())) any = true; }
       else if (data[f.id] != null && String(data[f.id]).trim() !== '') any = true;
     }));
     return any;
@@ -108,6 +109,7 @@
 
     if (f.type === 'assets') { return assetsNode(f); }
     if (f.type === 'funnel') { return funnelNode(f); }
+    if (f.type === 'pills') { return pillsNode(f); }
 
     const label = document.createElement('label');
     label.textContent = f.label;
@@ -173,6 +175,60 @@
       b.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest audiences';
       b.addEventListener('click', () => openAudiences(f.id));
       wrap.appendChild(b);
+    }
+    return wrap;
+  }
+
+  function pillsNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full';
+    const label = document.createElement('label');
+    label.textContent = f.label;
+    wrap.appendChild(label);
+
+    let sel = Array.isArray(data[f.id]) ? data[f.id].slice() : (data[f.id] ? [String(data[f.id])] : []);
+    data[f.id] = sel;
+    let syncOther = () => {};
+
+    function toggle(val, pill) {
+      const i = sel.indexOf(val);
+      if (i >= 0) { sel.splice(i, 1); pill.classList.remove('on'); }
+      else { sel.push(val); pill.classList.add('on'); }
+      data[f.id] = sel; save(); markRail(); scheduleAssist(); syncOther();
+    }
+    function pillRow(options) {
+      const row = document.createElement('div');
+      row.className = 'pill-row';
+      options.forEach(o => {
+        const p = document.createElement('button');
+        p.type = 'button'; p.className = 'pill' + (sel.includes(o) ? ' on' : ''); p.textContent = o;
+        p.addEventListener('click', () => toggle(o, p));
+        row.appendChild(p);
+      });
+      return row;
+    }
+    const groups = f.optgroups || [{ label: null, options: f.options || [] }];
+    groups.forEach(g => {
+      if (g.label) { const h = document.createElement('div'); h.className = 'pill-group'; h.textContent = g.label; wrap.appendChild(h); }
+      wrap.appendChild(pillRow(g.options));
+    });
+    if (f.otherField) {
+      const orow = document.createElement('div');
+      orow.className = 'pill-row';
+      const op = document.createElement('button');
+      op.type = 'button'; op.className = 'pill' + (sel.includes('Other') ? ' on' : ''); op.textContent = 'Other';
+      op.addEventListener('click', () => toggle('Other', op));
+      orow.appendChild(op);
+      wrap.appendChild(orow);
+      const other = document.createElement('input');
+      other.type = 'text'; other.id = 'f_' + f.id + 'Other';
+      other.placeholder = f.otherPlaceholder || 'Describe it in your own words';
+      if (data[f.id + 'Other'] != null) other.value = data[f.id + 'Other'];
+      other.addEventListener('input', () => { data[f.id + 'Other'] = other.value; save(); scheduleAssist(); markRail(); });
+      other.addEventListener('blur', () => runAssist());
+      wrap.appendChild(other);
+      syncOther = () => { other.style.display = sel.includes('Other') ? 'block' : 'none'; };
+      syncOther();
     }
     return wrap;
   }

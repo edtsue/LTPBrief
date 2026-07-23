@@ -148,6 +148,13 @@ body{
 }
 .field.flag input,.field.flag textarea{border-color:var(--amberLine);box-shadow:0 0 0 3px rgba(251,188,4,.2)}
 
+/* multi-select pills */
+.pill-group{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3);margin:10px 0 2px}
+.pill-row{display:flex;flex-wrap:wrap;gap:8px}
+.pill{font-family:inherit;font-size:13px;font-weight:600;padding:9px 15px;border-radius:999px;border:1px solid var(--fieldline);background:var(--field);color:var(--ink2);cursor:pointer;transition:.15s}
+.pill:hover{border-color:var(--accent);color:var(--accentInk);transform:translateY(-1px)}
+.pill.on{color:#fff;border-color:transparent;background:linear-gradient(100deg,var(--g1),var(--g2));box-shadow:var(--glow)}
+
 /* funnel (inverted pyramid of colored pills) */
 .funnel{display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:4px}
 .ftier{width:var(--w);min-width:230px;background:var(--c);border-radius:26px;padding:12px 18px;
