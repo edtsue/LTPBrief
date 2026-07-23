@@ -305,6 +305,34 @@ body{
 .brief-loading{color:var(--ink3);font-size:13.5px;display:flex;align-items:center;gap:9px}
 .brief-loading .gstar{width:17px;height:17px;animation:spin 1.2s linear infinite}
 
+/* hover tooltips */
+.tip{position:fixed;z-index:120;max-width:240px;background:var(--ink);color:var(--bg);font-size:12px;line-height:1.4;font-weight:500;
+  padding:8px 11px;border-radius:9px;box-shadow:var(--shadow-lg);pointer-events:none;opacity:0;transition:opacity .12s;
+  text-align:left}
+.info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;font-size:10px;color:var(--ink3);
+  border:1px solid var(--fieldline);cursor:help;vertical-align:-1px;transition:.15s}
+.info:hover,.info:focus-visible{color:var(--accentInk);border-color:var(--accent);outline:none}
+
+/* rail footer row + help button */
+.rail-foot-row{display:flex;align-items:center;gap:8px}
+.help-btn{width:30px;height:30px;flex:none;border-radius:50%;border:1px solid var(--fieldline);background:var(--field);
+  color:var(--ink3);font-weight:700;font-size:14px;cursor:pointer;transition:.15s}
+.help-btn:hover{border-color:var(--accent);color:var(--accentInk)}
+
+/* coach marks (guided tour) */
+.tour{position:fixed;inset:0;z-index:200}
+.tour-spot{position:fixed;border-radius:12px;border:2px solid #fff;box-shadow:0 0 0 9999px rgba(8,11,21,.62);transition:.28s cubic-bezier(.4,1,.5,1);pointer-events:none}
+.tour-card{position:fixed;width:300px;background:var(--surf,#fff);color:var(--ink);border-radius:16px;padding:16px 18px;box-shadow:var(--shadow-lg);z-index:201;animation:rise .2s ease}
+:root[data-theme="dark"] .tour-card{background:#141A28}
+.tour-t{font-weight:600;font-size:15px;margin-bottom:5px;letter-spacing:-.01em}
+.tour-b{font-size:13px;color:var(--ink2);line-height:1.5}
+.tour-foot{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.tour-count{font-size:11.5px;color:var(--ink3);font-weight:600}
+.tour-btns{display:flex;gap:8px}
+.tour-skip{background:none;border:none;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink3);cursor:pointer;padding:8px 10px}
+.tour-skip:hover{color:var(--ink)}
+.tour-next{padding:8px 16px;font-size:13px}
+
 /* toast */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
   background:var(--ink);color:var(--bg);font-size:13px;font-weight:500;padding:11px 20px;border-radius:999px;

@@ -39,15 +39,18 @@
       <div class="progbar"><i id="progFill"></i></div>
       <nav class="steps" id="steps" aria-label="Brief sections"></nav>
       <div class="rail-foot">
-        <button class="theme-toggle" id="themeToggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode">
-          <span class="track">
-            <span class="ico sun" aria-hidden="true">☀</span>
-            <span class="ico moon" aria-hidden="true">☾</span>
-            <span class="knob"></span>
-          </span>
-          <span class="tlabel" id="themeLabel">Light</span>
-        </button>
-        <div class="save" id="saveState" title="Your answers autosave to this browser">Saved ✓</div>
+        <div class="rail-foot-row">
+          <button class="theme-toggle" id="themeToggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode" data-tip="Switch between light and dark">
+            <span class="track">
+              <span class="ico sun" aria-hidden="true">☀</span>
+              <span class="ico moon" aria-hidden="true">☾</span>
+              <span class="knob"></span>
+            </span>
+            <span class="tlabel" id="themeLabel">Light</span>
+          </button>
+          <button class="help-btn" id="tourBtn" type="button" data-tip="Take a quick tour" aria-label="Take a tour">?</button>
+        </div>
+        <div class="save" id="saveState" data-tip="Your answers autosave to this browser">Saved ✓</div>
       </div>
     </aside>
 
@@ -71,12 +74,12 @@
           <p>Edit anything directly below, then export to hand off to the planning team.</p>
         </header>
         <div class="brief-actions">
-          <button class="btn primary" id="genBtn" type="button"><svg class="gstar"><use href="#starw" /></svg> Draft with Gemini</button>
-          <button class="btn" id="copyBtn" type="button">Copy</button>
-          <button class="btn" id="downloadBtn" type="button">Download .md</button>
-          <button class="btn" id="gdocBtn" type="button">Open in Google Docs</button>
-          <button class="btn ghost" id="resetBriefBtn" type="button" title="Discard edits and rebuild from your answers">Rebuild from answers</button>
-          <button class="btn ghost" id="editBtn" type="button">← Back to editing</button>
+          <button class="btn primary" id="genBtn" type="button" data-tip="Let Gemini rewrite your answers into a polished brief"><svg class="gstar"><use href="#starw" /></svg> Draft with Gemini</button>
+          <button class="btn" id="copyBtn" type="button" data-tip="Copy the brief to your clipboard">Copy</button>
+          <button class="btn" id="downloadBtn" type="button" data-tip="Download the brief as a Markdown file">Download .md</button>
+          <button class="btn" id="gdocBtn" type="button" data-tip="Copies the brief and opens a new Google Doc to paste into">Open in Google Docs</button>
+          <button class="btn ghost" id="resetBriefBtn" type="button" data-tip="Discard edits and rebuild from your answers">Rebuild from answers</button>
+          <button class="btn ghost" id="editBtn" type="button" data-tip="Go back to the form">← Back to editing</button>
         </div>
         <article class="brief-doc" id="briefDoc" contenteditable="true" spellcheck="true" aria-label="Editable brief"></article>
       </div>
@@ -90,8 +93,8 @@
         <span class="live" id="coStatus">watching</span>
       </div>
       <div class="co-tools">
-        <button class="co-tool" id="ingestBtn" type="button"><svg class="gstar"><use href="#star" /></svg> Start from a doc</button>
-        <button class="co-tool" id="interviewBtn" type="button"><svg class="gstar"><use href="#star" /></svg> Interview me</button>
+        <button class="co-tool" id="ingestBtn" type="button" data-tip="Paste or upload a doc and Gemini fills the brief for you"><svg class="gstar"><use href="#star" /></svg> Start from a doc</button>
+        <button class="co-tool" id="interviewBtn" type="button" data-tip="Answer a few questions — Gemini maps them to the right fields"><svg class="gstar"><use href="#star" /></svg> Interview me</button>
       </div>
       <div class="co-body" id="coBody"></div>
       <div class="co-ask">

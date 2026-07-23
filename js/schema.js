@@ -14,7 +14,7 @@ const SCHEMA = {
             { id: 'productArea', label: 'Product Area', type: 'text', placeholder: 'e.g. Gemini App' },
             { id: 'market', label: 'Market', type: 'text', placeholder: 'e.g. United States' },
             { id: 'planningYear', label: 'Planning year', type: 'text', placeholder: 'e.g. FY2027' },
-            { id: 'budget', label: 'Budget (a range is fine)', type: 'text', placeholder: 'e.g. $40M – $55M working media' },
+            { id: 'budget', label: 'Budget (a range is fine)', type: 'text', placeholder: 'e.g. $40M – $55M working media', help: 'A range is fine — the planning team just needs the working-media envelope.' },
             { id: 'launchDates', label: 'Key launch dates', type: 'textarea', placeholder: 'Product launches / moments this plan must land around' },
             { id: 'internalDates', label: 'Critical internal dates', type: 'textarea', placeholder: 'Strat sprint, exec reviews, lock dates…' },
             { id: 'stakeholders', label: 'Stakeholders', type: 'textarea', full: true, placeholder: 'Client-side and agency owners — name + role' }
@@ -24,7 +24,7 @@ const SCHEMA = {
           title: 'Guardrails',
           fields: [
             { id: 'constraints', label: 'Constraints & mandatories', type: 'textarea', full: true, placeholder: 'Brand-safety exclusions, non-negotiables, channel mandates, full-funnel requirement…' },
-            { id: 'xpaOverlaps', label: 'Cross-PA overlaps to watch', type: 'textarea', full: true, placeholder: 'Domains, audiences, or flighting other Product Areas may collide on' }
+            { id: 'xpaOverlaps', label: 'Cross-PA overlaps to watch', type: 'textarea', full: true, placeholder: 'Domains, audiences, or flighting other Product Areas may collide on', help: 'Where another Product Area might collide with this plan — shared domains, overlapping audiences, or clashing flighting.' }
           ]
         }
       ]
@@ -40,6 +40,7 @@ const SCHEMA = {
             {
               id: 'growthDriver', label: 'Source of brand growth (select all that apply)', type: 'pills', full: true,
               otherField: true,
+              help: 'Where growth will come from. Pick every driver that applies; use Other to write your own.',
               optgroups: [
                 { label: 'Increase purchase volume', options: ['Increase user base', 'Recruit new users', 'Steal competitive share', 'Increase volume of transactions or engagements', 'Increase volume of use', 'Increase frequency of use'] },
                 { label: 'Increase purchase value', options: ['Increase revenue per purchase', 'Convince people to pay more'] },
@@ -48,7 +49,8 @@ const SCHEMA = {
             },
             {
               id: 'sourceAudience', label: 'Source-of-growth audience', type: 'textarea', full: true, aiAction: 'audiences',
-              placeholder: 'Go deeper than the broad definition. Who, specifically, will drive growth — and why you have the right to win them.'
+              placeholder: 'Go deeper than the broad definition. Who, specifically, will drive growth — and why you have the right to win them.',
+              help: 'Go deeper than a demographic — the specific people who will drive growth, and why the brand has the right to win them.'
             },
             {
               id: 'commsStrategy', label: 'Comms Strategy', type: 'textarea', full: true,

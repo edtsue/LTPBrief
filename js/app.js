@@ -19,6 +19,7 @@
     coBody: document.getElementById('coBody'),
     ingestBtn: document.getElementById('ingestBtn'),
     interviewBtn: document.getElementById('interviewBtn'),
+    tourBtn: document.getElementById('tourBtn'),
     formView: document.getElementById('formView'),
     briefView: document.getElementById('briefView'),
     briefDoc: document.getElementById('briefDoc'),
@@ -88,6 +89,7 @@
     const brief = document.createElement('button');
     brief.type = 'button';
     brief.className = 'step brief-nav' + (onBrief ? ' active' : '');
+    brief.setAttribute('data-tip', 'Review, edit and export the finished brief');
     brief.innerHTML = `<span class="num brief-ico"><svg class="gstar"><use href="#star"/></svg></span> Full Brief`;
     brief.addEventListener('click', () => {
       if (completedCount() === 0) { toast('Add some brief details first.'); return; }
@@ -102,6 +104,18 @@
   }
 
   /* ---------- field rendering ---------- */
+  function makeLabel(text, help) {
+    const label = document.createElement('label');
+    label.textContent = text;
+    if (help) {
+      label.appendChild(document.createTextNode(' '));
+      const i = document.createElement('span');
+      i.className = 'info'; i.textContent = 'ⓘ'; i.tabIndex = 0;
+      i.setAttribute('data-tip', help);
+      label.appendChild(i);
+    }
+    return label;
+  }
   function fieldNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field' + (f.full ? ' full' : '');
@@ -111,8 +125,7 @@
     if (f.type === 'funnel') { return funnelNode(f); }
     if (f.type === 'pills') { return pillsNode(f); }
 
-    const label = document.createElement('label');
-    label.textContent = f.label;
+    const label = makeLabel(f.label, f.help);
     label.htmlFor = 'f_' + f.id;
     wrap.appendChild(label);
 
@@ -172,6 +185,7 @@
     if (f.aiAction === 'audiences') {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'ai-mini';
+      b.setAttribute('data-tip', 'Get 2–3 candidate audiences with a rationale for each');
       b.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest audiences';
       b.addEventListener('click', () => openAudiences(f.id));
       wrap.appendChild(b);
@@ -190,9 +204,7 @@
   function pillsNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field full';
-    const label = document.createElement('label');
-    label.textContent = f.label;
-    wrap.appendChild(label);
+    wrap.appendChild(makeLabel(f.label, f.help));
 
     let sel = Array.isArray(data[f.id]) ? data[f.id].slice() : (data[f.id] ? [String(data[f.id])] : []);
     data[f.id] = sel;
@@ -247,6 +259,7 @@
 
     const suggest = document.createElement('button');
     suggest.type = 'button'; suggest.className = 'ai-mini';
+    suggest.setAttribute('data-tip', 'Gemini proposes a measurable KPI for each funnel stage');
     suggest.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest full-funnel KPIs';
     suggest.addEventListener('click', async () => {
       suggest.disabled = true;
@@ -291,9 +304,7 @@
   function assetsNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field full';
-    const label = document.createElement('label');
-    label.textContent = f.label;
-    wrap.appendChild(label);
+    wrap.appendChild(makeLabel(f.label, f.help));
 
     const list = document.createElement('div');
     list.className = 'assets';
@@ -508,7 +519,7 @@
       btn.type = 'button';
       btn.className = 'sec-ai';
       btn.setAttribute('contenteditable', 'false');
-      btn.title = 'Refine this section with Gemini';
+      btn.setAttribute('data-tip', 'Refine this section with Gemini');
       btn.innerHTML = '<svg class="gstar"><use href="#starw"/></svg>';
       btn.addEventListener('click', (e) => { e.preventDefault(); openRefine(h2); });
       h2.appendChild(btn);
@@ -795,6 +806,7 @@
   });
   el.ingestBtn.addEventListener('click', openIngest);
   el.interviewBtn.addEventListener('click', openInterview);
+  el.tourBtn.addEventListener('click', startTour);
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
   el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });
@@ -837,6 +849,100 @@
       : 'New Google Doc opened — copy your brief and paste it in');
   });
 
+  /* ---------- hover tooltips ---------- */
+  let tipEl = null;
+  function initTooltips() {
+    document.addEventListener('mouseover', e => {
+      const t = e.target.closest && e.target.closest('[data-tip]');
+      if (t) showTip(t);
+    });
+    document.addEventListener('mouseout', e => {
+      const t = e.target.closest && e.target.closest('[data-tip]');
+      if (t) hideTip();
+    });
+    document.addEventListener('focusin', e => {
+      const t = e.target.closest && e.target.closest('[data-tip]');
+      if (t) showTip(t);
+    });
+    document.addEventListener('focusout', hideTip);
+    window.addEventListener('scroll', hideTip, true);
+  }
+  function showTip(target) {
+    const text = target.getAttribute('data-tip');
+    if (!text) return;
+    if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'tip'; document.body.appendChild(tipEl); }
+    tipEl.textContent = text;
+    tipEl.style.opacity = '0';
+    const r = target.getBoundingClientRect();
+    const tr = tipEl.getBoundingClientRect();
+    let top = r.top - tr.height - 9;
+    let placeBelow = false;
+    if (top < 8) { top = r.bottom + 9; placeBelow = true; }
+    let left = r.left + r.width / 2 - tr.width / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+    tipEl.style.top = top + 'px';
+    tipEl.style.left = left + 'px';
+    tipEl.classList.toggle('below', placeBelow);
+    tipEl.style.opacity = '1';
+  }
+  function hideTip() { if (tipEl) tipEl.style.opacity = '0'; }
+
+  /* ---------- coach marks (guided tour) ---------- */
+  const TOUR_KEY = 'ltpbrief.tour';
+  const TOUR_STEPS = [
+    { sel: '#steps', title: 'Five quick sections', body: 'Work through them in order or jump around — everything autosaves as you go.' },
+    { sel: '#fields', title: 'Fill it in here', body: 'Answer each section. Gemini reads along and flags anything that clashes with earlier answers.' },
+    { sel: '#copilot', title: 'Your Gemini co-pilot', body: 'It catches contradictions across steps and offers pre-fills you can accept with one click.' },
+    { sel: '.co-tools', title: 'Shortcuts to start fast', body: 'In a hurry? Start from a document, or let Gemini interview you and fill the fields.' },
+    { sel: '.brief-nav', title: 'Finish here', body: 'Open the Full Brief to review, edit inline, refine any section, and export.' },
+    { sel: '#themeToggle', title: 'Make it yours', body: 'Toggle light or dark anytime. Re-open this tour from the “?” beside it.' }
+  ];
+  function startTour() {
+    hideTip();
+    let i = 0;
+    const overlay = document.createElement('div');
+    overlay.className = 'tour';
+    const spot = document.createElement('div'); spot.className = 'tour-spot';
+    const card = document.createElement('div'); card.className = 'tour-card';
+    overlay.append(spot, card);
+    document.body.appendChild(overlay);
+    function end() { overlay.remove(); window.removeEventListener('resize', render); try { localStorage.setItem(TOUR_KEY, '1'); } catch {} }
+    function render() {
+      while (i < TOUR_STEPS.length && !document.querySelector(TOUR_STEPS[i].sel)) i++;
+      if (i >= TOUR_STEPS.length) { end(); return; }
+      const s = TOUR_STEPS[i];
+      const t = document.querySelector(s.sel);
+      const r = t.getBoundingClientRect();
+      const pad = 6;
+      spot.style.top = (r.top - pad) + 'px';
+      spot.style.left = (r.left - pad) + 'px';
+      spot.style.width = (r.width + pad * 2) + 'px';
+      spot.style.height = (r.height + pad * 2) + 'px';
+      card.innerHTML =
+        `<div class="tour-t">${escapeHtml(s.title)}</div><div class="tour-b">${escapeHtml(s.body)}</div>` +
+        `<div class="tour-foot"><span class="tour-count">${i + 1} / ${TOUR_STEPS.length}</span>` +
+        `<span class="tour-btns"><button class="tour-skip" type="button">Skip</button>` +
+        `<button class="tour-next btn primary" type="button">${i === TOUR_STEPS.length - 1 ? 'Done' : 'Next'}</button></span></div>`;
+      // position card below the spot if room, else above
+      const cw = 300;
+      let ctop = r.bottom + 14, below = true;
+      if (ctop + 150 > window.innerHeight) { ctop = r.top - 14 - 150; below = false; }
+      let cleft = r.left + r.width / 2 - cw / 2;
+      cleft = Math.max(12, Math.min(cleft, window.innerWidth - cw - 12));
+      card.style.top = Math.max(12, ctop) + 'px';
+      card.style.left = cleft + 'px';
+      card.querySelector('.tour-next').onclick = () => { i++; render(); };
+      card.querySelector('.tour-skip').onclick = end;
+    }
+    window.addEventListener('resize', render);
+    render();
+  }
+  function maybeTour() {
+    let seen = null;
+    try { seen = localStorage.getItem(TOUR_KEY); } catch {}
+    if (!seen) setTimeout(startTour, 700);
+  }
+
   /* ---------- theme ---------- */
   const THEME_KEY = 'ltpbrief.theme';
   const themeToggle = document.getElementById('themeToggle');
@@ -854,4 +960,6 @@
 
   /* ---------- boot ---------- */
   renderStep();
+  initTooltips();
+  maybeTour();
 })();
