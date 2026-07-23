@@ -17,7 +17,6 @@
     saveState: document.getElementById('saveState'),
     coStatus: document.getElementById('coStatus'),
     coBody: document.getElementById('coBody'),
-    ingestBtn: document.getElementById('ingestBtn'),
     interviewBtn: document.getElementById('interviewBtn'),
     tourBtn: document.getElementById('tourBtn'),
     formView: document.getElementById('formView'),
@@ -25,7 +24,6 @@
     briefDoc: document.getElementById('briefDoc'),
     genBtn: document.getElementById('genBtn'),
     copyBtn: document.getElementById('copyBtn'),
-    downloadBtn: document.getElementById('downloadBtn'),
     gdocBtn: document.getElementById('gdocBtn'),
     resetBriefBtn: document.getElementById('resetBriefBtn'),
     editBtn: document.getElementById('editBtn')
@@ -124,6 +122,7 @@
     if (f.type === 'assets') { return assetsNode(f); }
     if (f.type === 'funnel') { return funnelNode(f); }
     if (f.type === 'pills') { return pillsNode(f); }
+    if (f.type === 'dropzone') { return dropzoneNode(f); }
 
     const label = makeLabel(f.label, f.help);
     label.htmlFor = 'f_' + f.id;
@@ -199,6 +198,70 @@
       wrap.appendChild(b);
     }
     return wrap;
+  }
+
+  function dropzoneNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full';
+    const zone = document.createElement('div');
+    zone.className = 'dropzone';
+    zone.innerHTML =
+      '<div class="dz-inner">' +
+      '<svg class="gstar"><use href="#star"/></svg>' +
+      '<div class="dz-text"><b>Start from a document</b><span>Drag in PDFs, CSVs or data files — Gemini fills the brief for you</span></div>' +
+      '<button type="button" class="dz-btn">Choose or paste…</button>' +
+      '<input type="file" accept=".pdf,.csv,.tsv,.txt,.md,.json,image/*" hidden>' +
+      '</div><div class="dz-status" hidden></div>';
+    const input = zone.querySelector('input[type=file]');
+    const status = zone.querySelector('.dz-status');
+    zone.querySelector('.dz-btn').addEventListener('click', e => { e.stopPropagation(); openIngest(); });
+    zone.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => { if (input.files[0]) ingestFile(input.files[0], status); });
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('over'); }));
+    ['dragleave', 'dragend'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('over'); }));
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('over');
+      const file = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (file) ingestFile(file, status);
+    });
+    wrap.appendChild(zone);
+    return wrap;
+  }
+  function fileToPayload(file) {
+    return new Promise(resolve => {
+      const isText = /^text\//.test(file.type) || /\.(csv|tsv|txt|md|json)$/i.test(file.name);
+      const reader = new FileReader();
+      if (isText) {
+        reader.onload = () => resolve({ text: 'Source file: ' + file.name + '\n\n' + reader.result });
+        reader.readAsText(file);
+      } else {
+        reader.onload = () => resolve({ file: { mimeType: file.type || 'application/pdf', data: String(reader.result).split(',')[1] } });
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+  async function applyIngest(payload) {
+    const r = await Gemini.ingest(payload);
+    let filled = 0;
+    const f = r.fields || {};
+    Object.keys(f).forEach(k => { if (f[k] && String(f[k]).trim()) { data[k] = String(f[k]); filled++; } });
+    if (Array.isArray(r.assets) && r.assets.length) {
+      data.assets = r.assets.map(a => ({ name: a.name || '', status: a.status || '', ready: a.ready || '' }));
+      filled++;
+    }
+    save(); renderStep();
+    return { filled, summary: r.summary };
+  }
+  async function ingestFile(file, status) {
+    status.hidden = false;
+    status.innerHTML = '<svg class="gstar sp"><use href="#star"/></svg> Reading ' + escapeHtml(file.name) + '…';
+    try {
+      const payload = await fileToPayload(file);
+      const res = await applyIngest(payload);
+      toast(res.filled ? (res.summary || `Filled ${res.filled} field${res.filled > 1 ? 's' : ''} — review your answers`) : 'Nothing could be extracted from that file');
+    } catch (e) {
+      toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not read that file.');
+    }
   }
 
   function pillsNode(f) {
@@ -684,10 +747,10 @@
   }
 
   /* ---------- document ingest ---------- */
-  let ingestModal = null, ingestFile = null;
+  let ingestModal = null, ingestFileData = null;
   function openIngest() {
     if (!ingestModal) ingestModal = makeModal();
-    ingestFile = null;
+    ingestFileData = null;
     ingestModal.card.innerHTML =
       '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Start from a document<button class="rf-close" type="button">×</button></div>' +
       '<p class="co-empty" style="margin:-2px 0 10px">Paste text or upload a PDF / image / doc. Gemini fills what it can — you review before it saves.</p>' +
@@ -700,9 +763,9 @@
     const nameEl = ingestModal.card.querySelector('.ing-name');
     fileInput.addEventListener('change', () => {
       const f = fileInput.files[0];
-      if (!f) { ingestFile = null; nameEl.textContent = ''; return; }
+      if (!f) { ingestFileData = null; nameEl.textContent = ''; return; }
       const reader = new FileReader();
-      reader.onload = () => { ingestFile = { mimeType: f.type || 'application/octet-stream', data: String(reader.result).split(',')[1] }; nameEl.textContent = f.name; };
+      reader.onload = () => { ingestFileData = { mimeType: f.type || 'application/octet-stream', data: String(reader.result).split(',')[1] }; nameEl.textContent = f.name; };
       reader.readAsDataURL(f);
     });
     ingestModal.card.querySelector('.ing-go').addEventListener('click', runIngest);
@@ -710,25 +773,17 @@
   }
   async function runIngest() {
     const text = ingestModal.card.querySelector('.ing-text').value.trim();
-    if (!text && !ingestFile) { toast('Paste text or choose a file first'); return; }
+    if (!text && !ingestFileData) { toast('Paste text or choose a file first'); return; }
     const load = ingestModal.card.querySelector('.ing-load');
     const go = ingestModal.card.querySelector('.ing-go');
     load.hidden = false; go.disabled = true;
     try {
       const payload = {};
       if (text) payload.text = text;
-      if (ingestFile) payload.file = ingestFile;
-      const r = await Gemini.ingest(payload);
-      let filled = 0;
-      const f = r.fields || {};
-      Object.keys(f).forEach(k => { if (f[k] && String(f[k]).trim()) { data[k] = String(f[k]); filled++; } });
-      if (Array.isArray(r.assets) && r.assets.length) {
-        data.assets = r.assets.map(a => ({ name: a.name || '', status: a.status || '', ready: a.ready || '' }));
-        filled++;
-      }
-      save(); renderStep();
+      if (ingestFileData) payload.file = ingestFileData;
+      const res = await applyIngest(payload);
       ingestModal.close();
-      toast(filled ? (r.summary || `Filled ${filled} field${filled > 1 ? 's' : ''} — review your answers`) : 'Nothing could be extracted from that');
+      toast(res.filled ? (res.summary || `Filled ${res.filled} field${res.filled > 1 ? 's' : ''} — review your answers`) : 'Nothing could be extracted from that');
     } catch (e) {
       load.hidden = true; go.disabled = false;
       toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not read that document.');
@@ -804,7 +859,6 @@
       showBrief();
     } else goTo(current + 1);
   });
-  el.ingestBtn.addEventListener('click', openIngest);
   el.interviewBtn.addEventListener('click', openInterview);
   el.tourBtn.addEventListener('click', startTour);
   el.editBtn.addEventListener('click', showForm);
@@ -822,30 +876,29 @@
     try { await navigator.clipboard.writeText(el.briefDoc.innerText); toast('Brief copied'); }
     catch { toast('Copy failed — select and copy manually'); }
   });
-  el.downloadBtn.addEventListener('click', () => {
-    const name = 'LTP-Brief-' + (data.productArea || 'draft').replace(/\s+/g, '-') + '.md';
-    Brief.download(Brief.htmlToMarkdown(el.briefDoc), name);
-  });
-  // Copy the brief as rich (formatted) content, then open a new Google Doc to paste into.
-  // Google Docs handles its own sign-in — no OAuth setup required.
-  async function copyRich(html, plain) {
-    try {
-      const item = new ClipboardItem({
-        'text/html': new Blob([html], { type: 'text/html' }),
-        'text/plain': new Blob([plain], { type: 'text/plain' })
-      });
-      await navigator.clipboard.write([item]);
-      return true;
-    } catch {
-      try { await navigator.clipboard.writeText(plain); return true; } catch { return false; }
-    }
+  // Copy the brief as rich (formatted) content SYNCHRONOUSLY, then open a new Google Doc.
+  // Must copy before opening the tab — opening steals focus and would fail the async clipboard API.
+  function copyRichSync(html) {
+    const holder = document.createElement('div');
+    holder.setAttribute('contenteditable', 'true');
+    holder.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;white-space:pre-wrap';
+    holder.innerHTML = html;
+    document.body.appendChild(holder);
+    const range = document.createRange();
+    range.selectNodeContents(holder);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    sel.removeAllRanges();
+    holder.remove();
+    return ok;
   }
-  el.gdocBtn.addEventListener('click', async () => {
-    // Open synchronously in the click gesture so it isn't popup-blocked.
+  el.gdocBtn.addEventListener('click', () => {
+    const ok = copyRichSync(cleanBriefHtml());   // copy first, while this tab is still focused
     window.open('https://docs.new', '_blank', 'noopener');
-    const ok = await copyRich(cleanBriefHtml(), el.briefDoc.innerText);
     toast(ok
-      ? 'Brief copied — paste it into the new Google Doc (⌘/Ctrl-V)'
+      ? 'Brief copied — press ⌘/Ctrl-V in the new Google Doc to drop it in'
       : 'New Google Doc opened — copy your brief and paste it in');
   });
 
@@ -893,9 +946,8 @@
     { sel: '#steps', title: 'Five quick sections', body: 'Work through them in order or jump around — everything autosaves as you go.' },
     { sel: '#fields', title: 'Fill it in here', body: 'Answer each section. Gemini reads along and flags anything that clashes with earlier answers.' },
     { sel: '#copilot', title: 'Your Gemini co-pilot', body: 'It catches contradictions across steps and offers pre-fills you can accept with one click.' },
-    { sel: '.co-tools', title: 'Shortcuts to start fast', body: 'In a hurry? Start from a document, or let Gemini interview you and fill the fields.' },
-    { sel: '.brief-nav', title: 'Finish here', body: 'Open the Full Brief to review, edit inline, refine any section, and export.' },
-    { sel: '#themeToggle', title: 'Make it yours', body: 'Toggle light or dark anytime. Re-open this tour from the “?” beside it.' }
+    { sel: '.co-tools', title: 'Let Gemini interview you', body: 'In a hurry? Answer a few questions and Gemini fills the fields for you. (Or drop a document at the top of Context.)' },
+    { sel: '.brief-nav', title: 'Finish here', body: 'Open the Full Brief to review, edit inline, refine any section, and export. Re-open this tour anytime from the “?” bottom-left.' }
   ];
   function startTour() {
     hideTip();

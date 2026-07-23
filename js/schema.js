@@ -11,6 +11,11 @@ const SCHEMA = {
       groups: [
         {
           fields: [
+            { id: '_dropzone', type: 'dropzone' }
+          ]
+        },
+        {
+          fields: [
             { id: 'productArea', label: 'Product Area', type: 'text', placeholder: 'e.g. Gemini App' },
             { id: 'market', label: 'Market', type: 'text', placeholder: 'e.g. United States' },
             { id: 'planningYear', label: 'Planning year', type: 'text', placeholder: 'e.g. FY2027' },
