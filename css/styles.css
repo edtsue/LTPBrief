@@ -116,6 +116,7 @@ body{
 /* ---------- center ---------- */
 .main{overflow:hidden;display:flex;flex-direction:column}
 .form-view,.brief-view{padding:30px 40px;display:flex;flex-direction:column;height:100%;overflow:hidden}
+.form-view[hidden],.brief-view[hidden]{display:none!important}
 .mainhead h1{font-size:25px;font-weight:600;letter-spacing:-.02em;margin:0}
 .mainhead p{color:var(--ink3);font-size:13.5px;margin:5px 0 0;max-width:64ch;line-height:1.5}
 .fields{margin-top:22px;flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:18px;padding-right:6px}
