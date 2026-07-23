@@ -19,7 +19,7 @@ const SCHEMA = {
             { id: 'productArea', label: 'Product Area', type: 'text', placeholder: 'e.g. Gemini App' },
             { id: 'market', label: 'Market', type: 'text', placeholder: 'e.g. United States' },
             { id: 'planningYear', label: 'Planning year', type: 'text', placeholder: 'e.g. FY2027' },
-            { id: 'budget', label: 'Budget (a range is fine)', type: 'text', placeholder: 'e.g. $40M – $55M working media', help: 'A range is fine — the planning team just needs the working-media envelope.' },
+            { id: 'budget', label: 'Budget (drag the range)', type: 'budget', help: 'A range is fine — the planning team just needs the working-media envelope. Drag both handles.' },
             { id: 'launchDates', label: 'Key launch dates', type: 'textarea', placeholder: 'Product launches / moments this plan must land around' },
             { id: 'internalDates', label: 'Critical internal dates', type: 'textarea', placeholder: 'Strat sprint, exec reviews, lock dates…' },
             { id: 'stakeholders', label: 'Stakeholders', type: 'textarea', full: true, placeholder: 'Client-side and agency owners — name + role' }

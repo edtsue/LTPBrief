@@ -154,6 +154,7 @@
     if (f.type === 'funnel') { return funnelNode(f); }
     if (f.type === 'pills') { return pillsNode(f); }
     if (f.type === 'dropzone') { return dropzoneNode(f); }
+    if (f.type === 'budget') { return budgetNode(f); }
 
     const label = makeLabel(f.label, f.help);
     label.htmlFor = 'f_' + f.id;
@@ -229,6 +230,45 @@
       b.addEventListener('click', () => window.open(f.link.url, '_blank', 'noopener'));
       wrap.appendChild(b);
     }
+    return wrap;
+  }
+
+  function budgetNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full';
+    wrap.appendChild(makeLabel(f.label, f.help));
+    const MIN = 0, MAX = 200, STEP = 5;
+    let lo = 40, hi = 55;
+    const m = String(data.budget || '').match(/(\d+)\s*M[^\d]+(\d+)\s*M/i);
+    if (m) { lo = +m[1]; hi = +m[2]; }
+    else { const one = String(data.budget || '').match(/(\d+)\s*M/i); if (one) { lo = hi = +one[1]; } }
+    lo = Math.max(MIN, Math.min(lo, MAX)); hi = Math.max(lo, Math.min(hi, MAX));
+
+    const dr = document.createElement('div');
+    dr.className = 'dualrange';
+    dr.innerHTML = '<div class="dr-track"><div class="dr-fill"></div></div><input type="range" class="dr-min"><input type="range" class="dr-max">';
+    const fill = dr.querySelector('.dr-fill');
+    const mn = dr.querySelector('.dr-min');
+    const mx = dr.querySelector('.dr-max');
+    [mn, mx].forEach(r => { r.min = MIN; r.max = MAX; r.step = STEP; });
+    mn.value = lo; mx.value = hi;
+    const read = document.createElement('div');
+    read.className = 'dr-read';
+    const fmt = v => '$' + v + 'M';
+    function update(persist) {
+      let a = +mn.value, b = +mx.value;
+      if (a > b) { if (document.activeElement === mn) { b = a; mx.value = b; } else { a = b; mn.value = a; } }
+      const lp = (a - MIN) / (MAX - MIN) * 100, rp = (b - MIN) / (MAX - MIN) * 100;
+      fill.style.left = lp + '%'; fill.style.width = (rp - lp) + '%';
+      read.textContent = (a === b ? fmt(a) : fmt(a) + ' – ' + fmt(b)) + ' working media';
+      if (persist !== false) { data.budget = a === b ? fmt(a) : fmt(a) + ' – ' + fmt(b); save(); scheduleAssist(); markRail(); }
+    }
+    mn.addEventListener('input', () => update());
+    mx.addEventListener('input', () => update());
+    mn.addEventListener('change', () => runAssist());
+    mx.addEventListener('change', () => runAssist());
+    update(false);
+    wrap.append(dr, read);
     return wrap;
   }
 
@@ -1207,6 +1247,10 @@
   themeToggle.addEventListener('click', () => {
     setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
   });
+
+  // Mobile: tap the co-pilot header to open/close the drawer.
+  const cohdEl = document.querySelector('.cohd');
+  if (cohdEl) cohdEl.addEventListener('click', () => { document.getElementById('copilot').classList.toggle('open'); });
 
   /* ---------- boot ---------- */
   renderStep();

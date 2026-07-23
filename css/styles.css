@@ -162,6 +162,16 @@ body{
 .clear-x:hover{background:var(--fieldline);color:var(--ink)}
 .inwrap.ta .clear-x{top:11px;transform:none}
 
+/* budget dual-range slider */
+.dualrange{position:relative;height:32px;margin-top:8px}
+.dr-track{position:absolute;top:13px;left:9px;right:9px;height:6px;border-radius:6px;background:var(--line2)}
+.dr-fill{position:absolute;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--g1),var(--g2),var(--g3))}
+.dualrange input[type=range]{position:absolute;top:0;left:0;width:100%;height:32px;margin:0;background:none;pointer-events:none;-webkit-appearance:none;appearance:none}
+.dualrange input[type=range]:focus{outline:none}
+.dualrange input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;pointer-events:auto;width:20px;height:20px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 1px 5px rgba(0,0,0,.3);cursor:pointer}
+.dualrange input[type=range]::-moz-range-thumb{pointer-events:auto;width:18px;height:18px;border-radius:50%;background:#fff;border:2px solid var(--accent);box-shadow:0 1px 5px rgba(0,0,0,.3);cursor:pointer}
+.dr-read{margin-top:6px;font-size:13.5px;font-weight:600;color:var(--ink)}
+
 /* context dropzone */
 .dropzone{border:2px dashed var(--fieldline);border-radius:16px;background:var(--field);cursor:pointer;transition:.16s;overflow:hidden}
 .dropzone:hover{border-color:var(--accent)}
@@ -439,8 +449,17 @@ body{
   .brief-nav{flex:none}
   .rail-foot{flex-direction:row;justify-content:space-between;align-items:center;padding-top:0;margin-top:0}
 
-  .copilot{border-left:none;border-top:1px solid var(--line2);overflow:visible;max-height:none}
-  .co-body{overflow:visible}
+  /* co-pilot becomes a bottom drawer */
+  .copilot{position:fixed;left:0;right:0;bottom:0;z-index:40;max-height:80vh;overflow:hidden;
+    border-left:none;border-top:1px solid var(--line2);border-radius:18px 18px 0 0;
+    transform:translateY(calc(100% - 56px));transition:transform .28s ease;box-shadow:0 -8px 30px rgba(8,11,21,.28);
+    display:flex;flex-direction:column}
+  .copilot.open{transform:translateY(0)}
+  .cohd{cursor:pointer}
+  .cohd::after{content:"▲";margin-left:6px;font-size:9px;color:var(--ink3);transition:transform .2s}
+  .copilot.open .cohd::after{transform:rotate(180deg)}
+  .co-body{overflow-y:auto}
+  .form-view,.brief-view{padding-bottom:72px}
   .asset-row{grid-template-columns:1fr 1fr;grid-auto-rows:min-content;gap:8px}
   .asset-row .rm{grid-column:2;justify-self:end;width:38px}
   .ftier{width:100%!important;min-width:0}
