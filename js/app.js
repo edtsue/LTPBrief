@@ -24,7 +24,7 @@
     briefDoc: document.getElementById('briefDoc'),
     genBtn: document.getElementById('genBtn'),
     copyBtn: document.getElementById('copyBtn'),
-    gdocBtn: document.getElementById('gdocBtn'),
+    pdfBtn: document.getElementById('pdfBtn'),
     resetBriefBtn: document.getElementById('resetBriefBtn'),
     editBtn: document.getElementById('editBtn')
   };
@@ -114,6 +114,19 @@
     }
     return label;
   }
+  // Wrap a text input/textarea with a little × clear button.
+  function wrapClear(input, isTextarea) {
+    const holder = document.createElement('div');
+    holder.className = 'inwrap' + (isTextarea ? ' ta' : '');
+    const clr = document.createElement('button');
+    clr.type = 'button'; clr.className = 'clear-x'; clr.textContent = '×'; clr.tabIndex = -1; clr.setAttribute('aria-label', 'Clear');
+    const sync = () => { clr.style.display = input.value ? 'grid' : 'none'; };
+    clr.addEventListener('click', () => { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); sync(); input.focus(); });
+    input.addEventListener('input', sync);
+    holder.appendChild(input); holder.appendChild(clr);
+    sync();
+    return holder;
+  }
   function fieldNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field' + (f.full ? ' full' : '');
@@ -163,7 +176,8 @@
     input.addEventListener('input', () => { data[f.id] = input.value; save(); scheduleAssist(); markRail(); });
     if (f.type === 'select') input.addEventListener('change', () => runAssist());
     input.addEventListener('blur', () => runAssist());
-    wrap.appendChild(input);
+    if (f.type === 'select') wrap.appendChild(input);
+    else wrap.appendChild(wrapClear(input, f.type === 'textarea'));
 
     // "Other" free-text companion for selects that allow it.
     if (f.type === 'select' && f.otherField) {
@@ -194,7 +208,7 @@
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'field-link';
       b.innerHTML = '<span>↗</span> ' + escapeHtml(f.link.label);
-      b.addEventListener('click', () => openIframe(f.link.url, f.link.label));
+      b.addEventListener('click', () => window.open(f.link.url, '_blank', 'noopener'));
       wrap.appendChild(b);
     }
     return wrap;
@@ -290,27 +304,37 @@
       });
       return row;
     }
+    const box = document.createElement('div');
+    box.className = 'pill-groups';
+    wrap.appendChild(box);
     const groups = f.optgroups || [{ label: null, options: f.options || [] }];
     groups.forEach(g => {
-      if (g.label) { const h = document.createElement('div'); h.className = 'pill-group'; h.textContent = g.label; wrap.appendChild(h); }
-      wrap.appendChild(pillRow(g.options));
+      const set = document.createElement('div');
+      set.className = 'pill-set';
+      if (g.label) { const h = document.createElement('div'); h.className = 'pill-group'; h.textContent = g.label; set.appendChild(h); }
+      set.appendChild(pillRow(g.options));
+      box.appendChild(set);
     });
     if (f.otherField) {
+      const set = document.createElement('div');
+      set.className = 'pill-set';
       const orow = document.createElement('div');
       orow.className = 'pill-row';
       const op = document.createElement('button');
       op.type = 'button'; op.className = 'pill' + (sel.includes('Other') ? ' on' : ''); op.textContent = 'Other';
       op.addEventListener('click', () => toggle('Other', op));
       orow.appendChild(op);
-      wrap.appendChild(orow);
+      set.appendChild(orow);
+      box.appendChild(set);
       const other = document.createElement('input');
       other.type = 'text'; other.id = 'f_' + f.id + 'Other';
       other.placeholder = f.otherPlaceholder || 'Describe it in your own words';
       if (data[f.id + 'Other'] != null) other.value = data[f.id + 'Other'];
       other.addEventListener('input', () => { data[f.id + 'Other'] = other.value; save(); scheduleAssist(); markRail(); });
       other.addEventListener('blur', () => runAssist());
-      wrap.appendChild(other);
-      syncOther = () => { other.style.display = sel.includes('Other') ? 'block' : 'none'; };
+      const otherHolder = wrapClear(other, false);
+      wrap.appendChild(otherHolder);
+      syncOther = () => { otherHolder.style.display = sel.includes('Other') ? '' : 'none'; };
       syncOther();
     }
     return wrap;
@@ -357,7 +381,7 @@
       if (data[st.id] != null) input.value = data[st.id];
       input.addEventListener('input', () => { data[st.id] = input.value; save(); scheduleAssist(); markRail(); });
       input.addEventListener('blur', () => runAssist());
-      tier.append(lab, input);
+      tier.append(lab, wrapClear(input, false));
       funnel.appendChild(tier);
     });
     wrap.appendChild(funnel);
@@ -731,21 +755,6 @@
     }
   }
 
-  /* ---------- in-app reference viewer ---------- */
-  let iframeModal = null;
-  function openIframe(url, title) {
-    if (!iframeModal) iframeModal = makeModal();
-    iframeModal.card.className = 'refine-card iframe-card';
-    iframeModal.card.innerHTML =
-      '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> ' + escapeHtml(title || 'Reference') +
-      '<a class="iframe-open" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">Open in new tab ↗</a>' +
-      '<button class="rf-close" type="button" aria-label="Close">×</button></div>' +
-      '<iframe class="ref-frame" src="' + escapeHtml(url) + '" title="' + escapeHtml(title || '') + '" referrerpolicy="no-referrer-when-downgrade"></iframe>' +
-      '<div class="iframe-fallback co-empty">If the page doesn&rsquo;t appear, it may block embedding — use &ldquo;Open in new tab&rdquo; above.</div>';
-    iframeModal.card.querySelector('.rf-close').addEventListener('click', () => iframeModal.close());
-    iframeModal.open();
-  }
-
   /* ---------- document ingest ---------- */
   let ingestModal = null, ingestFileData = null;
   function openIngest() {
@@ -876,30 +885,12 @@
     try { await navigator.clipboard.writeText(el.briefDoc.innerText); toast('Brief copied'); }
     catch { toast('Copy failed — select and copy manually'); }
   });
-  // Copy the brief as rich (formatted) content SYNCHRONOUSLY, then open a new Google Doc.
-  // Must copy before opening the tab — opening steals focus and would fail the async clipboard API.
-  function copyRichSync(html) {
-    const holder = document.createElement('div');
-    holder.setAttribute('contenteditable', 'true');
-    holder.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;white-space:pre-wrap';
-    holder.innerHTML = html;
-    document.body.appendChild(holder);
-    const range = document.createRange();
-    range.selectNodeContents(holder);
-    const sel = window.getSelection();
-    sel.removeAllRanges(); sel.addRange(range);
-    let ok = false;
-    try { ok = document.execCommand('copy'); } catch { ok = false; }
-    sel.removeAllRanges();
-    holder.remove();
-    return ok;
-  }
-  el.gdocBtn.addEventListener('click', () => {
-    const ok = copyRichSync(cleanBriefHtml());   // copy first, while this tab is still focused
-    window.open('https://docs.new', '_blank', 'noopener');
-    toast(ok
-      ? 'Brief copied — press ⌘/Ctrl-V in the new Google Doc to drop it in'
-      : 'New Google Doc opened — copy your brief and paste it in');
+  // Export the brief as a PDF via the browser's print-to-PDF (print stylesheet isolates the brief).
+  el.pdfBtn.addEventListener('click', () => {
+    const prev = document.title;
+    document.title = 'LTP Brief — ' + (data.productArea || 'Draft');
+    window.print();
+    setTimeout(() => { document.title = prev; }, 600);
   });
 
   /* ---------- hover tooltips ---------- */
