@@ -336,8 +336,10 @@
   /* ---------- events ---------- */
   el.backBtn.addEventListener('click', () => goTo(current - 1));
   el.nextBtn.addEventListener('click', () => {
-    if (current === steps.length - 1) showBrief();
-    else goTo(current + 1);
+    if (current === steps.length - 1) {
+      if (completedCount() === 0) { toast('Add some brief details before reviewing.'); return; }
+      showBrief();
+    } else goTo(current + 1);
   });
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
