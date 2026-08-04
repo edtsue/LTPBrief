@@ -236,21 +236,28 @@ body{
 .ftier .fstage-edit:hover{background:rgba(255,255,255,.18)}
 .ftier .fstage-edit:focus{background:rgba(255,255,255,.95);color:#202124;text-shadow:none;
   box-shadow:0 0 0 3px rgba(255,255,255,.6)}
+/* Always on. These were revealed on hover, which hid the only clue that a
+   stage can be dragged at all — a capability nobody can see is one nobody
+   has. Quiet at rest, solid under the pointer. */
 .fstage-rm,.fstage-grip{position:absolute;top:9px;width:24px;height:24px;padding:0;border:none;
-  background:rgba(255,255,255,.24);color:#fff;line-height:1;cursor:pointer;
-  display:grid;place-items:center;opacity:0;transition:opacity .15s,background .15s}
+  background:rgba(255,255,255,.22);color:#fff;line-height:1;cursor:pointer;
+  display:grid;place-items:center;opacity:.72;transition:opacity .15s,background .15s}
 .fstage-rm{right:11px;border-radius:50%;font-size:15px}
 /* touch-action:none or the browser claims the gesture as a scroll before the
    drag ever starts */
 .fstage-grip{left:11px;border-radius:7px;font-size:11px;letter-spacing:-2px;cursor:grab;touch-action:none}
 .ftier:hover .fstage-rm,.ftier:focus-within .fstage-rm,
 .ftier:hover .fstage-grip,.ftier:focus-within .fstage-grip{opacity:1}
-.fstage-rm:hover,.fstage-grip:hover{background:rgba(255,255,255,.45)}
+.fstage-rm:hover,.fstage-grip:hover{background:rgba(255,255,255,.45);opacity:1}
+.fstage-rm:focus-visible,.fstage-grip:focus-visible{opacity:1;outline:2px solid #fff;outline-offset:1px}
 .fstage-rm:disabled,.fstage-grip:disabled{display:none}
 .fstage-grip:active{cursor:grabbing}
-/* Nothing hovers on a touch screen, so a control that appears on hover is a
-   control that does not exist there. */
-@media (hover:none){.fstage-rm,.fstage-grip{opacity:1}}
+/* The grip carries the whole hint that a stage can be moved, so it says so
+   next to the dots rather than only in a tooltip nobody hovers for. */
+.fstage-grip{width:auto;padding:0 8px;gap:5px;grid-auto-flow:column;font-size:10px;
+  font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:8px}
+.fstage-grip .gdots{font-size:11px;letter-spacing:-2px}
+@media(max-width:560px){.fstage-grip .glabel{display:none}}
 
 /* The lifted tier must not animate its own transform — it follows the pointer
    frame by frame — while the tiers it displaces should slide, which is what

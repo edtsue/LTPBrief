@@ -794,7 +794,7 @@
 
       const grip = document.createElement('button');
       grip.type = 'button'; grip.className = 'fstage-grip';
-      grip.innerHTML = '&#8942;&#8942;';
+      grip.innerHTML = '<span class="gdots">&#8942;&#8942;</span><span class="glabel">Drag</span>';
       grip.disabled = stages.length < 2;
       grip.setAttribute('aria-label', 'Reorder ' + st.label);
       grip.setAttribute('data-tip', 'Drag to reorder — the funnel resizes to match');
@@ -1272,19 +1272,29 @@
   }
 
   async function generate() {
+    /* Drafting replaces the entire brief, including any editing already done
+       inside it. Snapshot before the request rather than after: the previous
+       text leaves the DOM the moment the loading state paints, and by the time
+       saveBrief() runs there is nothing left to capture. */
+    pushUndo();
+    const replaced = !!editedBrief;
     el.genBtn.disabled = true;
     el.briefDoc.innerHTML = `<div class="brief-loading"><svg class="gstar"><use href="#star"/></svg> Drafting your brief…</div>`;
+    let offline = false;
     try {
       const res = await Gemini.synthesize(data);
       el.briefDoc.innerHTML = Brief.toHtml(res.markdown || Brief.toMarkdown(data));
     } catch {
       el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+      offline = true;
       toast('Draft assist is offline — showing the brief from your inputs.');
     }
     injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
     el.genBtn.disabled = false;
+    // only worth offering when there was something to lose
+    if (replaced && !offline) toastAction('Brief drafted — your earlier version was replaced', 'Undo', doUndo);
   }
 
   /* ---------- reusable modal ---------- */
@@ -1629,11 +1639,16 @@
     reader.onload = () => {
       try {
         const parsed = JSON.parse(reader.result);
+        // loading a file overwrites whatever is open; parse first so a bad
+        // file cannot destroy the current brief on its way to failing
+        const hadWork = completedCount() > 0 || !!editedBrief;
+        pushUndo();
         data = parsed.data || {};
         editedBrief = parsed.brief || null;
         try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); if (editedBrief) localStorage.setItem(BRIEF_KEY, editedBrief); else localStorage.removeItem(BRIEF_KEY); } catch {}
-        undoState = null; current = 0; showForm(); renderStep();
-        toast('Brief loaded');
+        current = 0; showForm(); mapFunnelFields(); renderStep();
+        if (hadWork) toastAction('Brief loaded — it replaced what was open', 'Undo', doUndo);
+        else toast('Brief loaded');
       } catch { toast('That file could not be read'); }
       el.loadFileInput.value = '';
     };
@@ -1641,11 +1656,18 @@
   });
   el.newBriefBtn.addEventListener('click', () => {
     if (!confirm('Start a new brief? This clears your current answers on this device.')) return;
-    data = {}; editedBrief = null; undoState = null;
+    /* Was clearing undoState, which made this the one clearing action with no
+       way back. It is recoverable — doUndo writes the restored answers to
+       storage — so it should be offered. Nuclear delete is the one that
+       genuinely is not, and says so. */
+    pushUndo();
+    const hadWork = completedCount() > 0 || !!editedBrief;
+    data = {}; editedBrief = null;
     try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(BRIEF_KEY); } catch {}
-    current = 0; showForm(); renderStep();
+    current = 0; showForm(); mapFunnelFields(); renderStep();
     if (el.coAnswer) el.coAnswer.hidden = true;
-    toast('Started a new brief');
+    if (hadWork) toastAction('Started a new brief', 'Undo', doUndo);
+    else toast('Started a new brief');
   });
 
   /* ---------- action sheet (consolidates secondary brief actions) ---------- */
@@ -1710,13 +1732,17 @@
   el.genBtn.addEventListener('click', generate);
   el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });
   el.resetBriefBtn.addEventListener('click', () => {
+    // discards every inline edit; capture before, not after
+    pushUndo();
+    const discarded = !!editedBrief;
     editedBrief = null;
     try { localStorage.removeItem(BRIEF_KEY); } catch {}
     el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
     injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
-    toast('Brief rebuilt from your answers');
+    if (discarded) toastAction('Brief rebuilt — your edits were discarded', 'Undo', doUndo);
+    else toast('Brief rebuilt from your answers');
   });
   el.copyBtn.addEventListener('click', async () => {
     try { await navigator.clipboard.writeText(el.briefDoc.innerText); toast('Brief copied'); }
