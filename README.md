@@ -32,7 +32,7 @@ Answers autosave to the browser. The final step generates an exportable brief
 
 ## The gate
 
-Set `GATE_PW` in Vercel and the tool asks for it. There is nothing to store —
+Set `GATE_PW` in the host environment and the tool asks for it. There is nothing to store —
 the cookie carries its own expiry and a signature made with the password, so
 changing `GATE_PW` invalidates every session already issued.
 
@@ -41,9 +41,9 @@ unticked and the cookie has no `Max-Age`: it dies when the browser closes, and
 the token inside it is only good for twelve hours regardless. Tick it and the
 browser is remembered for seven days.
 
-**Changing `GATE_PW` needs a redeploy.** Vercel bakes environment variables
-into a deployment when it builds, so a password changed after the last build
-is not the password the running function compares against — the gate keeps
+**Changing `GATE_PW` needs a redeploy.** Environment variables are baked into
+a deployment when it builds, so a password changed after the last build is not
+the password the running function compares against — the gate keeps
 working, on the old value, and the new one is refused.
 
 It is enforced on `/api/gemini`, not only in the browser. This is a no-build
@@ -57,7 +57,8 @@ this either way.
 
 ```bash
 cp .env.example .env      # add your GEMINI_API_KEY
-npm run dev               # vercel dev
+npm run dev               # local dev server
+npm test                  # gate + cache-header tests
 ```
 
 ## Environment
@@ -81,4 +82,4 @@ Without a key the form still works, saves, and exports — only the live assist 
 
 ## Deploy
 
-Hosted on Vercel. Production domain: `ltpbrief.mfgpilots.com`.
+Production domain: `ltpbrief.mfgpilots.com`.

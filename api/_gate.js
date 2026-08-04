@@ -11,8 +11,8 @@
  *
  * The cookie is signed rather than stored: `exp.signature`, where the signature
  * is an HMAC of the expiry under the password itself. Nothing to persist, and
- * changing GATE_PW in Vercel invalidates every cookie already issued — which is
- * the behaviour you want from the only lever you have.
+ * changing GATE_PW invalidates every cookie already issued — which is the
+ * behaviour you want from the only lever you have.
  *
  * Being remembered is a choice, and it is off unless asked for. Unticked, the
  * cookie has no Max-Age and dies with the browser, and the token inside it is
@@ -60,8 +60,8 @@ function validToken(token) {
 }
 
 /* Never let an answer that depends on the cookie be stored by anything.
-   Say nothing and Vercel applies `public, max-age=0, must-revalidate`, which
-   is wrong twice over: `public` invites a shared cache to hand one visitor's
+   Say nothing and the platform applies `public, max-age=0, must-revalidate`,
+   wrong twice over: `public` invites a shared cache to hand one visitor's
    answer to the next, and Chrome's memory cache will re-serve `{open:false}`
    within a session regardless of must-revalidate. That is what made the lock
    screen reappear after a login that had genuinely succeeded — the cookie was
