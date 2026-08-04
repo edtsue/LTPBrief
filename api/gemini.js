@@ -484,6 +484,12 @@ ${src}` }] }],
 
     res.status(400).json({ error: 'Unknown action' });
   } catch (e) {
+    /* Log it. A 502 whose only copy of the cause is in a response body nobody
+       reads is a fault you cannot diagnose from the runtime logs — which is
+       precisely how a broken model name stayed invisible while every action
+       failed. Action and model included, because "Gemini 404" on its own does
+       not say which of the two models is wrong. */
+    console.error('[gemini] action=%s model=%s failed: %s', action, modelFor(action), String(e && e.message || e));
     res.status(502).json({ error: String(e.message || e) });
   }
 };
