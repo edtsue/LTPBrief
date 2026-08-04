@@ -150,12 +150,24 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 /* 429 and 503 are the two failures worth waiting out — the first is the quota
    catching its breath, the second is the model briefly unavailable. Both used
    to surface as "could not suggest just now" and lose the user's place. */
+/* Which models have already told us they will not take a thinking budget.
+   Learned once per warm instance rather than rediscovered on every call: the
+   retry below costs a whole extra round trip to Gemini, and `assist` fires
+   while someone is typing. A cold start pays it once and no call after that. */
+const rejectsThinkingConfig = new Set();
+
 async function callGemini(body, opts = {}) {
   const model = opts.model || MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
   let last;
   let payload = body;
   let droppedThinking = false;
+  if (rejectsThinkingConfig.has(model) && payload.generationConfig && payload.generationConfig.thinkingConfig) {
+    const gc = Object.assign({}, payload.generationConfig);
+    delete gc.thinkingConfig;
+    payload = Object.assign({}, payload, { generationConfig: gc });
+    droppedThinking = true;   // already known bad; do not spend a request proving it again
+  }
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await sleep(300 * Math.pow(3, attempt - 1));   // 300ms, 900ms
     const r = await fetch(url, {
@@ -179,7 +191,10 @@ async function callGemini(body, opts = {}) {
       const gc = Object.assign({}, payload.generationConfig);
       delete gc.thinkingConfig;
       payload = Object.assign({}, payload, { generationConfig: gc });
-      console.warn('[gemini] model=%s rejected thinkingConfig; retrying without it', model);
+      if (!rejectsThinkingConfig.has(model)) {
+        rejectsThinkingConfig.add(model);
+        console.warn('[gemini] model=%s rejects thinkingConfig; dropping it for this model from now on', model);
+      }
       continue;
     }
     last = Object.assign(new Error(`Gemini ${r.status}: ${t.slice(0, 300)}`), { status: r.status });
