@@ -296,8 +296,6 @@
     mn.value = lo; mx.value = hi;
     mn.setAttribute('aria-label', 'Lowest budget in the range');
     mx.setAttribute('aria-label', 'Highest budget in the range');
-    mn.setAttribute('data-tip', 'Drag for the low end of the range');
-    mx.setAttribute('data-tip', 'Drag for the high end of the range');
 
     const fmt = v => '$' + v + 'M';
     const ends = document.createElement('div');
@@ -736,6 +734,7 @@
       if (ev.button != null && ev.button !== 0) return;
       if (tierEls.length < 2) return;
       ev.preventDefault();
+      hideTip();   // the grip's own tip would otherwise ride along over the tiers
       const n = tierEls.length;
       const rects = tierEls.map(el => el.getBoundingClientRect());
       const gap = n > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 0;
@@ -803,7 +802,7 @@
       lab.type = 'text';
       lab.value = st.label;
       lab.setAttribute('aria-label', 'Stage name');
-      lab.setAttribute('data-tip', 'Rename this stage');
+      lab.title = 'Rename this stage';
       lab.addEventListener('input', () => {
         const next = liveStages().map(s => Object.assign({}, s));
         next[i].label = lab.value;
@@ -1634,6 +1633,10 @@
     });
     document.addEventListener('focusout', hideTip);
     window.addEventListener('scroll', hideTip, true);
+    /* A tip hanging over a control while you are using it is just something in
+       the way. Mouse only: on touch, pointerdown precedes the click that
+       toggles the tip, so hiding here would make it impossible to open. */
+    document.addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') hideTip(); });
   }
   function showTip(target) {
     const text = target.getAttribute('data-tip');
@@ -1644,9 +1647,12 @@
     tipEl.style.opacity = '0';
     const r = target.getBoundingClientRect();
     const tr = tipEl.getBoundingClientRect();
-    let top = r.top - tr.height - 9;
+    /* Sit clear of what it describes. Tight against the control, the bubble
+       reads as part of it and covers whatever label sits alongside. */
+    const GAP = 13;
+    let top = r.top - tr.height - GAP;
     let placeBelow = false;
-    if (top < 8) { top = r.bottom + 9; placeBelow = true; }
+    if (top < 8) { top = r.bottom + GAP; placeBelow = true; }
     let left = r.left + r.width / 2 - tr.width / 2;
     left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
     tipEl.style.top = top + 'px';
