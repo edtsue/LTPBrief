@@ -531,11 +531,38 @@
         f.stages.forEach(st => {
           if (r[st.id]) { data[st.id] = r[st.id]; const inp = document.getElementById('f_' + st.id); if (inp) inp.value = r[st.id]; }
         });
-        save(); markRail(); runAssist(); toastAction('Funnel KPIs added', 'Undo', doUndo);
+        save(); markRail(); runAssist(); syncReset(); toastAction('Funnel KPIs added', 'Undo', doUndo);
       } catch (e) { toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not suggest just now.'); }
       suggest.disabled = false; suggest.innerHTML = orig;
     });
-    wrap.appendChild(suggest);
+    /* Reset clears all five stages at once. It goes through the same undo as
+       the AI actions do — five KPIs are a few minutes of thinking, and a
+       button that destroys them with no way back is a trap. It also disables
+       itself when there is nothing to clear, so it never lies about what it
+       will do. */
+    const reset = document.createElement('button');
+    reset.type = 'button'; reset.className = 'mini-reset';
+    reset.textContent = 'Reset funnel';
+    reset.setAttribute('data-tip', 'Clear every stage — undo is offered after');
+    const anyFilled = () => f.stages.some(st => data[st.id] != null && String(data[st.id]).trim() !== '');
+    const syncReset = () => { reset.disabled = !anyFilled(); };
+    reset.addEventListener('click', () => {
+      if (!anyFilled()) return;
+      pushUndo();
+      f.stages.forEach(st => {
+        data[st.id] = '';
+        const inp = document.getElementById('f_' + st.id);
+        // the input event is what tells each field's own × to hide again
+        if (inp) { inp.value = ''; inp.dispatchEvent(new Event('input', { bubbles: true })); }
+      });
+      save(); markRail(); runAssist(); syncReset();
+      toastAction('Funnel cleared', 'Undo', () => { doUndo(); });
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'funnel-actions';
+    actions.append(suggest, reset);
+    wrap.appendChild(actions);
 
     const funnel = document.createElement('div');
     funnel.className = 'funnel';
@@ -553,12 +580,13 @@
       input.id = 'f_' + st.id;
       input.placeholder = st.placeholder || '';
       if (data[st.id] != null) input.value = data[st.id];
-      input.addEventListener('input', () => { data[st.id] = input.value; save(); scheduleAssist(); markRail(); });
+      input.addEventListener('input', () => { data[st.id] = input.value; save(); scheduleAssist(); markRail(); syncReset(); });
       input.addEventListener('blur', () => runAssist());
       tier.append(lab, wrapClear(input, false));
       funnel.appendChild(tier);
     });
     wrap.appendChild(funnel);
+    syncReset();
     return wrap;
   }
 
