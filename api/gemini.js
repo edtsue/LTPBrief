@@ -229,7 +229,26 @@ module.exports = async (req, res) => {
 
   let payload = req.body;
   if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch { payload = {}; } }
-  const { action, stepId, data } = payload || {};
+  const { action, stepId } = payload || {};
+  /* Clamp what arrives, whatever the client sent. Only synthesis has a reason
+     to read document text, and even there it is bounded — this endpoint is
+     open, so the size of a request must not be the caller's decision. */
+  const DOC_TEXT_MAX = 60000;
+  function clampDocs(d, keepText) {
+    if (!d || !Array.isArray(d.docs)) return d || {};
+    let budget = DOC_TEXT_MAX;
+    return Object.assign({}, d, {
+      docs: d.docs.slice(0, 40).map(doc => {
+        const out = { name: String(doc && doc.name || '').slice(0, 200), note: String(doc && doc.note || '').slice(0, 400) };
+        if (keepText && doc && doc.text && budget > 0) {
+          out.text = String(doc.text).slice(0, budget);
+          budget -= out.text.length;
+        }
+        return out;
+      })
+    });
+  }
+  const data = clampDocs(payload && payload.data, action === 'synthesize');
 
   try {
     if (action === 'assist') {
