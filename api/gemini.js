@@ -154,18 +154,34 @@ async function callGemini(body, opts = {}) {
   const model = opts.model || MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
   let last;
+  let payload = body;
+  let droppedThinking = false;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt) await sleep(300 * Math.pow(3, attempt - 1));   // 300ms, 900ms
     const r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      body: JSON.stringify(payload)
     });
     if (r.ok) {
       const j = await r.json();
       return j.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
     }
     const t = await r.text().catch(() => '');
+    /* Not every model lets you switch thinking off, and the one that refuses
+       says only "invalid argument" — it does not name the field. Turning the
+       budget down is an optimisation, never a requirement, so drop it and try
+       again rather than fail the call over it. Logged either way: if this
+       retry succeeds, thinkingConfig was the fault; if it still fails, the
+       fault is elsewhere in the request and the next log line says so. */
+    if (r.status === 400 && !droppedThinking && payload.generationConfig && payload.generationConfig.thinkingConfig) {
+      droppedThinking = true;
+      const gc = Object.assign({}, payload.generationConfig);
+      delete gc.thinkingConfig;
+      payload = Object.assign({}, payload, { generationConfig: gc });
+      console.warn('[gemini] model=%s rejected thinkingConfig; retrying without it', model);
+      continue;
+    }
     last = Object.assign(new Error(`Gemini ${r.status}: ${t.slice(0, 300)}`), { status: r.status });
     if (r.status !== 429 && r.status !== 503) throw last;
   }
