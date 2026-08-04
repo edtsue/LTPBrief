@@ -128,9 +128,13 @@
       <p>An assisted intake for long-term media planning. Enter the password to continue.</p>
       <input id="gatePw" type="password" placeholder="Password" autocomplete="current-password"
              aria-label="Password" spellcheck="false" />
+      <label class="gate-remember">
+        <input id="gateRemember" type="checkbox" />
+        <span>Remember this browser for 7 days</span>
+      </label>
       <button type="submit" class="btn primary" id="gateGo">Continue</button>
       <div class="gate-err" id="gateErr" role="alert" hidden></div>
-      <div class="gate-note">This browser stays signed in for 7 days.</div>
+      <div class="gate-note">Leave it unticked and you'll be asked again when you close your browser.</div>
     </form>
   </div>
   <script src="js/gate.js"></script>

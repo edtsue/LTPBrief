@@ -1,6 +1,7 @@
 /* The gate itself.
  *   GET    → { open, gated }  — is this browser already let in?
- *   POST   → { ok } and a seven-day cookie, or 401
+ *   POST   → { ok } and a cookie, or 401. `remember: true` makes the cookie
+ *            last seven days; without it the cookie dies with the browser.
  *   DELETE → forgets this browser
  */
 const gate = require('./_gate');
@@ -32,6 +33,7 @@ module.exports = async (req, res) => {
     return;
   }
 
-  gate.setCookie(res, gate.issue());
-  res.status(200).json({ ok: true, days: gate.DAYS });
+  const remember = !!(body && body.remember);
+  gate.setCookie(res, gate.issue(remember), remember);
+  res.status(200).json({ ok: true, remembered: remember, days: remember ? gate.DAYS : 0 });
 };

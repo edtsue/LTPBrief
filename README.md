@@ -32,10 +32,19 @@ Answers autosave to the browser. The final step generates an exportable brief
 
 ## The gate
 
-Set `GATE_PW` in Vercel and the tool asks for it once; the browser is then
-remembered for seven days via a signed, HttpOnly cookie. There is nothing to
-store — the cookie carries its own expiry and a signature made with the
-password, so changing `GATE_PW` invalidates every session already issued.
+Set `GATE_PW` in Vercel and the tool asks for it. There is nothing to store —
+the cookie carries its own expiry and a signature made with the password, so
+changing `GATE_PW` invalidates every session already issued.
+
+Being remembered is a choice and it is **off by default**. Leave the box
+unticked and the cookie has no `Max-Age`: it dies when the browser closes, and
+the token inside it is only good for twelve hours regardless. Tick it and the
+browser is remembered for seven days.
+
+**Changing `GATE_PW` needs a redeploy.** Vercel bakes environment variables
+into a deployment when it builds, so a password changed after the last build
+is not the password the running function compares against — the gate keeps
+working, on the old value, and the new one is refused.
 
 It is enforced on `/api/gemini`, not only in the browser. This is a no-build
 static site: `index.html`, `css/` and `js/` are served from the repo root and
@@ -55,7 +64,7 @@ npm run dev               # vercel dev
 
 | Variable | Purpose |
 | --- | --- |
-| `GATE_PW` | Password for the front door. Set it and the tool asks once, then remembers that browser for 7 days. Leave it unset and the tool is open. Changing it signs everyone out. |
+| `GATE_PW` | Password for the front door. Leave it unset and the tool is open. Changing it signs everyone out — and needs a redeploy to take effect. |
 | `GEMINI_KEY` | Server-side key for the assistant (required for live assist). `GEMINI_API_KEY` also accepted. |
 | `GEMINI_MODEL` | Optional model override for synthesis, refine, ingest and ask (default `gemini-3.6-flash`) |
 | `GEMINI_FAST_MODEL` | Optional model for the structured, high-frequency calls — review, funnel KPIs, audiences, document digests (default `gemini-flash-lite-latest`) |

@@ -13,12 +13,19 @@
  * is an HMAC of the expiry under the password itself. Nothing to persist, and
  * changing GATE_PW in Vercel invalidates every cookie already issued — which is
  * the behaviour you want from the only lever you have.
+ *
+ * Being remembered is a choice, and it is off unless asked for. Unticked, the
+ * cookie has no Max-Age and dies with the browser, and the token inside it is
+ * only good for twelve hours — so a cookie lifted off a shared machine is not
+ * a week-long key. Ticked, it lasts seven days.
  */
 const crypto = require('crypto');
 
 const COOKIE = 'ltp_gate';
 const DAYS = 7;
 const MAX_AGE = DAYS * 24 * 60 * 60;
+/** How long an un-remembered token stays valid, browser session aside. */
+const SESSION_AGE = 12 * 60 * 60;
 
 const secret = () => process.env.GATE_PW || '';
 /** Whether a gate is configured at all. Without one the tool stays open. */
@@ -28,8 +35,8 @@ function sign(exp) {
   return crypto.createHmac('sha256', secret()).update(String(exp)).digest('base64url');
 }
 
-function issue() {
-  const exp = Date.now() + MAX_AGE * 1000;
+function issue(remember) {
+  const exp = Date.now() + (remember ? MAX_AGE : SESSION_AGE) * 1000;
   return `${exp}.${sign(exp)}`;
 }
 
@@ -68,12 +75,15 @@ function passed(req) {
   return validToken(readCookie(req, COOKIE));
 }
 
-function setCookie(res, token) {
+/* No Max-Age unless we were asked to remember: a cookie without one is a
+   session cookie, and the browser drops it when it closes. */
+function setCookie(res, token, remember) {
+  const age = remember ? `Max-Age=${MAX_AGE}; ` : '';
   res.setHeader('Set-Cookie',
-    `${COOKIE}=${encodeURIComponent(token)}; Max-Age=${MAX_AGE}; Path=/; HttpOnly; Secure; SameSite=Lax`);
+    `${COOKIE}=${encodeURIComponent(token)}; ${age}Path=/; HttpOnly; Secure; SameSite=Lax`);
 }
 function clearCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`);
 }
 
-module.exports = { COOKIE, DAYS, MAX_AGE, enabled, issue, sameSecret, validToken, passed, setCookie, clearCookie, readCookie };
+module.exports = { COOKIE, DAYS, MAX_AGE, SESSION_AGE, enabled, issue, sameSecret, validToken, passed, setCookie, clearCookie, readCookie };

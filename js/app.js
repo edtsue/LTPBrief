@@ -1468,10 +1468,16 @@
     window.addEventListener('resize', render);
     render();
   }
+  /* Wait for the door, don't race it. Whether a gate is configured is an
+     answer that comes back over the network, so a timer set at boot would
+     start the tour on top of the lock screen every time. js/gate.js fires
+     `ltp:unlocked` on every path that leaves the tool usable — gate passed,
+     gate absent, gate unreachable — so this stays correct with no gate too. */
   function maybeTour() {
     let seen = null;
     try { seen = localStorage.getItem(TOUR_KEY); } catch {}
-    if (!seen) setTimeout(startTour, 700);
+    if (seen) return;
+    document.addEventListener('ltp:unlocked', () => setTimeout(startTour, 700), { once: true });
   }
 
   /* ---------- theme ---------- */
