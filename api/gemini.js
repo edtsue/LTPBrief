@@ -316,7 +316,9 @@ You are running a friendly, efficient intake interview to complete the LTP brief
 
 ${CATALOG}
 
-When the brief has solid coverage across all five sections, set done=true and make "message" a brief wrap-up. Otherwise done=false.
+If the user skips a question, move on: ask about something else, never re-ask what was skipped or press for it later, and return no updates for it. A skip is an answer about their priorities, not a gap to fill.
+
+When the brief has solid coverage across all five sections, set done=true and make "message" a brief wrap-up. Otherwise done=false. If everything left has been skipped, set done=true rather than looping.
 
 Current data (JSON):
 ${JSON.stringify(data, null, 2)}

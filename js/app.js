@@ -1283,9 +1283,24 @@
     const card = document.createElement('div');
     card.className = 'refine-card';
     ov.appendChild(card);
-    ov.addEventListener('click', e => { if (e.target === ov) ov.hidden = true; });
+    /* A modal has four ways out — its ×, the backdrop, Esc, and its own code —
+       and anything that must happen on close has to happen on all four. The
+       interview needs to redraw the form and offer its undo, and only ever
+       did on one of them. onClose is cleared before firing so a handler that
+       calls close() itself does not recurse. */
+    const api = {
+      ov, card, onClose: null,
+      open() { ov.hidden = false; },
+      close() {
+        ov.hidden = true;
+        const fn = api.onClose;
+        if (fn) { api.onClose = null; fn(); }
+      }
+    };
+    ov.__modal = api;
+    ov.addEventListener('click', e => { if (e.target === ov) api.close(); });
     document.body.appendChild(ov);
-    return { ov, card, open() { ov.hidden = false; }, close() { ov.hidden = true; } };
+    return api;
   }
   function modalClose(m) { m.card.querySelectorAll('.rf-close').forEach(b => b.addEventListener('click', () => m.close())); }
 
@@ -1368,23 +1383,44 @@
   }
 
   /* ---------- interview mode ---------- */
-  let ivModal = null, ivHistory = [];
+  let ivModal = null, ivHistory = [], ivFilled = 0;
   function openInterview() {
     ivHistory = [];
+    ivFilled = 0;
+    /* One interview is one undoable act. It writes answers straight into the
+       brief as you go, so anyone who tries it on a part-filled one needs a way
+       back — every other action that overwrites answers offers the same. */
+    pushUndo();
     if (!ivModal) ivModal = makeModal();
     ivModal.card.className = 'refine-card iv-card';
     ivModal.card.innerHTML =
       '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Interview me<button class="rf-close" type="button">×</button></div>' +
       '<div class="iv-log"></div>' +
-      '<div class="iv-input"><input type="text" placeholder="Type your answer&hellip;" disabled><button class="btn primary iv-send" type="button" disabled>Send</button></div>';
-    ivModal.card.querySelector('.rf-close').addEventListener('click', () => { ivModal.close(); renderStep(); });
+      '<div class="iv-input"><input type="text" placeholder="Type your answer&hellip;" disabled><button class="btn primary iv-send" type="button" disabled>Send</button></div>' +
+      '<div class="iv-foot">' +
+        '<button class="iv-skip" type="button" disabled>Skip this question</button>' +
+        '<span class="iv-note">Answers save as you go</span>' +
+        '<button class="iv-quit" type="button">Finish &amp; close</button>' +
+      '</div>';
     const input = ivModal.card.querySelector('.iv-input input');
     const send = ivModal.card.querySelector('.iv-send');
+    const skip = ivModal.card.querySelector('.iv-skip');
     const submit = () => { const v = input.value.trim(); if (v) { input.value = ''; ivStep(v); } };
     send.addEventListener('click', submit);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    /* Leaving has to be possible at every point, including mid-question: an
+       interview you cannot walk out of is an interrogation. Both exits keep
+       whatever it filled and offer one undo for the lot. */
+    skip.addEventListener('click', () => { if (!skip.disabled) ivStep('Skip this one — ask me something else.', 'Skipped'); });
+    ivModal.card.querySelector('.iv-quit').addEventListener('click', () => ivModal.close());
+    ivModal.card.querySelector('.rf-close').addEventListener('click', () => ivModal.close());
+    ivModal.onClose = onInterviewClosed;   // covers ×, Finish, the backdrop and Esc alike
     ivModal.open();
     ivStep(null);
+  }
+  function onInterviewClosed() {
+    renderStep();
+    if (ivFilled) toastAction(ivFilled + (ivFilled === 1 ? ' answer filled' : ' answers filled'), 'Undo', doUndo);
   }
   function ivAddMsg(role, text) {
     const log = ivModal.card.querySelector('.iv-log');
@@ -1394,26 +1430,40 @@
     log.appendChild(m); log.scrollTop = log.scrollHeight;
     return m;
   }
-  async function ivStep(userText) {
+  /* `label` is what the log shows; `userText` is what the model is told. They
+     differ for a skip, where "Skipped" reads better than the instruction. */
+  async function ivStep(userText, label) {
     const input = ivModal.card.querySelector('.iv-input input');
     const send = ivModal.card.querySelector('.iv-send');
-    if (userText) { ivAddMsg('user', userText); ivHistory.push({ role: 'user', text: userText }); }
-    input.disabled = true; send.disabled = true;
+    const skip = ivModal.card.querySelector('.iv-skip');
+    if (userText) { ivAddMsg('user', label || userText); ivHistory.push({ role: 'user', text: userText }); }
+    input.disabled = true; send.disabled = true; if (skip) skip.disabled = true;
     const thinking = ivAddMsg('ai thinking', '…');
     try {
       const r = await Gemini.interview(data, ivHistory);
-      (r.updates || []).forEach(u => { if (u.fieldId && u.value != null) data[u.fieldId] = u.value; });
+      (r.updates || []).forEach(u => {
+        if (u.fieldId && u.value != null) { data[u.fieldId] = u.value; ivFilled++; }
+      });
       save(); markRail();
       thinking.textContent = r.message || '';
       thinking.classList.remove('thinking');
       ivHistory.push({ role: 'assistant', text: r.message || '' });
       if (r.done) {
         input.placeholder = 'Interview complete ✓'; input.disabled = true; send.disabled = true;
-        renderStep(); toast('Interview complete — your answers are filled');
-      } else { input.disabled = false; send.disabled = false; input.focus(); }
+        if (skip) skip.disabled = true;
+        renderStep();
+        if (ivFilled) toastAction('Interview complete — ' + ivFilled + ' filled', 'Undo', doUndo);
+        else toast('Interview complete');
+      } else {
+        input.disabled = false; send.disabled = false; input.focus();
+        if (skip) skip.disabled = false;
+      }
     } catch (e) {
       thinking.textContent = e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Something went wrong — try again.';
       thinking.classList.remove('thinking');
+      // a failed turn must not strand the interview: let them retry, skip or leave
+      input.disabled = false; send.disabled = false;
+      if (skip) skip.disabled = false;
     }
   }
 
@@ -1560,7 +1610,9 @@
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      document.querySelectorAll('.refine-overlay:not([hidden])').forEach(o => { o.hidden = true; });
+      document.querySelectorAll('.refine-overlay:not([hidden])').forEach(o => {
+        if (o.__modal) o.__modal.close(); else o.hidden = true;
+      });
       document.querySelectorAll('.sheet-wrap.open').forEach(o => o.classList.remove('open'));
     }
   });
