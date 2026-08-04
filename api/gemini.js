@@ -19,7 +19,7 @@ The brief has five steps:
 
 const FIELD_IDS = {
   context: ['productArea', 'market', 'planningYear', 'budget', 'launchDates', 'internalDates', 'stakeholders', 'constraints', 'xpaOverlaps'],
-  growth: ['growthDriver', 'growthDriverOther', 'sourceAudience', 'commsStrategy'],
+  growth: ['growthDriver', 'growthDriverOtherVolume', 'growthDriverOtherValue', 'growthDriverOtherExtension', 'growthDriverOther', 'sourceAudience', 'commsStrategy'],
   landscape: ['competitors', 'categoryDynamics', 'whiteSpace', 'culturalTerritories'],
   funnel: ['kpiAwareness', 'kpiConsideration', 'kpiIntent', 'kpiPurchase', 'kpiLoyalty'],
   platform: ['platform', 'positioning', 'assets'],
@@ -74,6 +74,7 @@ const CATALOG = `Field ids you may fill (all optional — only include what the 
 - growthDriver: one driver; prefer one of [Increase user base, Recruit new users, Steal competitive share, Increase volume of transactions or engagements, Increase volume of use, Increase frequency of use, Increase revenue per purchase, Convince people to pay more, A diversified product range, Open new products and services]; if none fit, set growthDriver to "Other" and put wording in growthDriverOther
 - growthDriverOther: free-text growth driver when growthDriver is "Other"
 - sourceAudience: specific source-of-growth audience
+- growthDriverOtherVolume / growthDriverOtherValue / growthDriverOtherExtension: free text explaining an "Other" chosen in that growth group
 - commsStrategy: barriers, planning principles, role of channels
 - competitors: key competitors
 - categoryDynamics: where the brand leads vs lags
@@ -85,7 +86,7 @@ const CATALOG = `Field ids you may fill (all optional — only include what the 
 - researchNotes: anything else the planning team should know`;
 
 const FIELD_PROPS = {};
-['productArea','market','planningYear','budget','launchDates','internalDates','stakeholders','constraints','xpaOverlaps','growthDriver','growthDriverOther','sourceAudience','commsStrategy','competitors','categoryDynamics','whiteSpace','kpiAwareness','kpiConsideration','kpiIntent','kpiPurchase','kpiLoyalty','culturalTerritories','platform','positioning','researchNotes']
+['productArea','market','planningYear','budget','launchDates','internalDates','stakeholders','constraints','xpaOverlaps','growthDriver','growthDriverOther','growthDriverOtherVolume','growthDriverOtherValue','growthDriverOtherExtension','sourceAudience','commsStrategy','competitors','categoryDynamics','whiteSpace','kpiAwareness','kpiConsideration','kpiIntent','kpiPurchase','kpiLoyalty','culturalTerritories','platform','positioning','researchNotes']
   .forEach(k => { FIELD_PROPS[k] = { type: 'string' }; });
 
 const INGEST_SCHEMA = {

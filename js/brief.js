@@ -41,6 +41,20 @@ const Brief = (() => {
 
     L.push('## Growth Strategy', '');
     let driverList = Array.isArray(data.growthDriver) ? data.growthDriver.slice() : (data.growthDriver ? [String(data.growthDriver)] : []);
+    // Each group's Other stands in for whatever was typed to explain it; an
+    // Other with nothing written stays as the group's name so the reader can
+    // see the question was asked and not answered.
+    const OTHER_OF = {};
+    SCHEMA.steps.forEach(st => st.groups.forEach(gr => gr.fields.forEach(fl => {
+      (fl.optgroups || []).forEach(og => { if (og.otherId) OTHER_OF['Other — ' + og.label] = og.otherId; });
+    })));
+    driverList = driverList.map(x => {
+      const id = OTHER_OF[x];
+      if (!id) return x;
+      const written = val(data, id);
+      return written ? `${x.replace('Other — ', '')}: ${written}` : x;
+    });
+    // legacy single Other, from briefs started before each group had its own
     if (driverList.includes('Other')) {
       driverList = driverList.filter(x => x !== 'Other');
       if (val(data, 'growthDriverOther')) driverList.push(val(data, 'growthDriverOther'));

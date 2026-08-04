@@ -231,6 +231,10 @@ body{
 @media (max-width:640px){.doc-row{grid-template-columns:minmax(0,1fr) 34px}.doc-row input{grid-column:1 / -1}}
 
 /* funnel actions row: suggest on the left, reset on the right */
+.other-holder{margin-top:8px}
+.pill.pill-other{border-style:dashed}
+.pill.pill-other.on{border-style:solid}
+
 .funnel-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .mini-reset{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--ink3);background:var(--field);border:1px solid var(--fieldline);border-radius:999px;padding:8px 14px;cursor:pointer;transition:.16s}
 .mini-reset:hover:not(:disabled){color:var(--red);border-color:var(--gapLine);background:var(--gapBg)}

@@ -44,12 +44,19 @@ const SCHEMA = {
           fields: [
             {
               id: 'growthDriver', label: 'Source of brand growth (select all that apply)', type: 'pills', full: true,
-              otherField: true,
-              help: 'Where growth will come from. Pick every driver that applies; use Other to write your own.',
+              help: 'Where growth will come from. Pick every driver that applies; each group has an Other if the real answer is not on the list.',
+              // Each group carries its own Other, and its own field to explain it —
+              // one shared box could not say WHICH kind of growth was meant.
               optgroups: [
-                { label: 'Increase purchase volume', options: ['Increase user base', 'Recruit new users', 'Steal competitive share', 'Increase volume of transactions or engagements', 'Increase volume of use', 'Increase frequency of use'] },
-                { label: 'Increase purchase value', options: ['Increase revenue per purchase', 'Convince people to pay more'] },
-                { label: 'Brand extension', options: ['A diversified product range', 'Open new products and services'] }
+                { label: 'Increase purchase volume', otherId: 'growthDriverOtherVolume',
+                  otherPlaceholder: 'What else grows the volume here?',
+                  options: ['Increase user base', 'Recruit new users', 'Steal competitive share', 'Increase volume of transactions or engagements', 'Increase volume of use', 'Increase frequency of use'] },
+                { label: 'Increase purchase value', otherId: 'growthDriverOtherValue',
+                  otherPlaceholder: 'What else grows the value of a purchase?',
+                  options: ['Increase revenue per purchase', 'Convince people to pay more'] },
+                { label: 'Brand extension', otherId: 'growthDriverOtherExtension',
+                  otherPlaceholder: 'What else does the brand extend into?',
+                  options: ['A diversified product range', 'Open new products and services'] }
               ]
             },
             {

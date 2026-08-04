@@ -462,14 +462,18 @@
       else { sel.push(val); pill.classList.add('on'); }
       data[f.id] = sel; save(); markRail(); scheduleAssist(); syncOther();
     }
+    function makePill(val) {
+      const p = document.createElement('button');
+      p.type = 'button'; p.className = 'pill' + (sel.includes(val) ? ' on' : '');
+      const ck = document.createElement('span'); ck.className = 'ck'; ck.textContent = '✓';
+      p.appendChild(ck); p.appendChild(document.createTextNode(val));
+      return p;
+    }
     function pillRow(options) {
       const row = document.createElement('div');
       row.className = 'pill-row';
       options.forEach(o => {
-        const p = document.createElement('button');
-        p.type = 'button'; p.className = 'pill' + (sel.includes(o) ? ' on' : '');
-        const ck = document.createElement('span'); ck.className = 'ck'; ck.textContent = '✓';
-        p.appendChild(ck); p.appendChild(document.createTextNode(o));
+        const p = makePill(o);
         p.addEventListener('click', () => toggle(o, p));
         row.appendChild(p);
       });
@@ -479,22 +483,56 @@
     box.className = 'pill-groups';
     wrap.appendChild(box);
     const groups = f.optgroups || [{ label: null, options: f.options || [] }];
+    const syncs = [];
     groups.forEach(g => {
       const set = document.createElement('div');
       set.className = 'pill-set';
       if (g.label) { const h = document.createElement('div'); h.className = 'pill-group'; h.textContent = g.label; set.appendChild(h); }
-      set.appendChild(pillRow(g.options));
+      const row = pillRow(g.options);
+
+      /* An Other per group, each with the field that explains it. One shared
+         box below all of them could not say WHICH kind of growth was meant,
+         and an Other with nowhere to write is just an unanswered question. */
+      if (g.otherId) {
+        const val = 'Other — ' + g.label;
+        const p = makePill(val);
+        p.classList.add('pill-other');
+        row.appendChild(p);
+        set.appendChild(row);
+
+        const other = document.createElement('input');
+        other.type = 'text'; other.id = 'f_' + g.otherId;
+        other.placeholder = g.otherPlaceholder || 'Describe it in your own words';
+        other.setAttribute('aria-label', g.label + ' — other');
+        if (data[g.otherId] != null) other.value = data[g.otherId];
+        other.addEventListener('input', () => { data[g.otherId] = other.value; save(); scheduleAssist(); markRail(); });
+        other.addEventListener('blur', () => runAssist());
+        const holder = wrapClear(other, false);
+        holder.classList.add('other-holder');
+        set.appendChild(holder);
+
+        const sync = opts => {
+          const on = sel.includes(val);
+          holder.style.display = on ? '' : 'none';
+          // asked a question, so put the cursor where the answer goes
+          if (on && opts && opts.focus) other.focus();
+        };
+        syncs.push(sync);
+        p.addEventListener('click', () => { toggle(val, p); sync({ focus: true }); });
+        sync();
+      } else {
+        set.appendChild(row);
+      }
       box.appendChild(set);
     });
+    syncOther = () => syncs.forEach(fn => fn());
+
     if (f.otherField) {
       const set = document.createElement('div');
       set.className = 'pill-set';
       const orow = document.createElement('div');
       orow.className = 'pill-row';
-      const op = document.createElement('button');
-      op.type = 'button'; op.className = 'pill' + (sel.includes('Other') ? ' on' : '');
-      const opck = document.createElement('span'); opck.className = 'ck'; opck.textContent = '✓';
-      op.appendChild(opck); op.appendChild(document.createTextNode('Other'));
+      const op = makePill('Other');
       op.addEventListener('click', () => toggle('Other', op));
       orow.appendChild(op);
       set.appendChild(orow);
@@ -507,8 +545,9 @@
       other.addEventListener('blur', () => runAssist());
       const otherHolder = wrapClear(other, false);
       wrap.appendChild(otherHolder);
-      syncOther = () => { otherHolder.style.display = sel.includes('Other') ? '' : 'none'; };
-      syncOther();
+      const legacy = () => { otherHolder.style.display = sel.includes('Other') ? '' : 'none'; };
+      syncs.push(legacy);
+      legacy();
     }
     return wrap;
   }
