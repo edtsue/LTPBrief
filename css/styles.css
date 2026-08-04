@@ -563,6 +563,12 @@ body{
    a picture of a door. The tour card sits at 201, toasts and modals lower. */
 .gate{position:fixed;inset:0;z-index:400;display:grid;place-items:center;padding:24px;
   background:var(--bg);}
+/* Without this the `hidden` attribute is decorative: an author `display`
+   declaration outranks the UA's [hidden]{display:none}, so setting
+   gate.hidden = true changed nothing and the lock screen stayed up through a
+   perfectly successful login. Same reason .form-view, .brief-view, .co-answer
+   and .refine-overlay each carry one. */
+.gate[hidden]{display:none}
 .gate::before{content:"";position:absolute;inset:-25%;pointer-events:none;filter:blur(90px);opacity:.6;
   background:
     radial-gradient(580px 580px at 8% -6%,#8AB4F8,transparent 70%),
