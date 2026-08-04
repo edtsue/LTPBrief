@@ -2,6 +2,25 @@
 // Keeps the API key server-side and shapes two actions: `assist` and `synthesize`.
 
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+const FAST_MODEL = process.env.GEMINI_FAST_MODEL || 'gemini-flash-lite-latest';
+
+/* One model for everything meant a KPI suggestion and a full brief synthesis
+   were priced and paced the same. Structured, schema-constrained calls take
+   the fast model and no thinking budget — they are filling a shape, not
+   reasoning their way to one. Synthesis and refine keep the better model,
+   because that output is what the planning team actually reads.
+   `cap` bounds the response: without it a bad prompt runs long on the bill. */
+const PLAN = {
+  assist:       { model: FAST_MODEL, temperature: 0.35, cap: 900,  think: false },
+  'funnel-kpis':{ model: FAST_MODEL, temperature: 0.4,  cap: 400,  think: false },
+  audiences:    { model: FAST_MODEL, temperature: 0.6,  cap: 900,  think: false },
+  digest:       { model: FAST_MODEL, temperature: 0.2,  cap: 500,  think: false },
+  interview:    { model: FAST_MODEL, temperature: 0.5,  cap: 700,  think: false },
+  ask:          { model: MODEL,      temperature: 0.5,  cap: 800,  think: true  },
+  ingest:       { model: MODEL,      temperature: 0.2,  cap: 2500, think: true  },
+  synthesize:   { model: MODEL,      temperature: 0.4,  cap: 4000, think: true  },
+  refine:       { model: MODEL,      temperature: 0.5,  cap: 2000, think: true  }
+};
 const API_KEY = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY;
 
 // Condensed long-term-planning framework the model reasons against.
@@ -117,27 +136,64 @@ const INTERVIEW_SCHEMA = {
   required: ['message', 'done']
 };
 
-async function callGemini(body) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${API_KEY}`;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  if (!r.ok) {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* 429 and 503 are the two failures worth waiting out — the first is the quota
+   catching its breath, the second is the model briefly unavailable. Both used
+   to surface as "could not suggest just now" and lose the user's place. */
+async function callGemini(body, opts = {}) {
+  const model = opts.model || MODEL;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+  let last;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt) await sleep(300 * Math.pow(3, attempt - 1));   // 300ms, 900ms
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (r.ok) {
+      const j = await r.json();
+      return j.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+    }
     const t = await r.text().catch(() => '');
-    throw new Error(`Gemini ${r.status}: ${t.slice(0, 300)}`);
+    last = Object.assign(new Error(`Gemini ${r.status}: ${t.slice(0, 300)}`), { status: r.status });
+    if (r.status !== 429 && r.status !== 503) throw last;
   }
-  const j = await r.json();
-  return j.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+  throw last;
 }
 
-function assistPrompt(stepId, data) {
+/** generationConfig for an action, so no call site has to remember the policy. */
+function cfg(action, extra) {
+  const p = PLAN[action] || { temperature: 0.4, cap: 1200, think: true };
+  const out = Object.assign({ temperature: p.temperature, maxOutputTokens: p.cap }, extra || {});
+  if (!p.think) out.thinkingConfig = { thinkingBudget: 0 };
+  return out;
+}
+const modelFor = action => (PLAN[action] || {}).model || MODEL;
+
+function assistPrompt(stepId, data, fields) {
   const ids = FIELD_IDS[stepId] || [];
+  /* The step being reviewed arrives in full; the rest of the brief is what it
+     has to stay consistent with, and a review does not need every word of it
+     to catch a contradiction. Sending the whole thing was most of the payload. */
+  const here = fields && typeof fields === 'object' ? fields : Object.fromEntries(ids.map(id => [id, data[id]]).filter(([, v]) => v != null && v !== ''));
+  const elsewhere = {};
+  Object.keys(data || {}).forEach(k => {
+    if (ids.includes(k) || k === 'docs') return;
+    const v = data[k];
+    if (v == null || v === '') return;
+    elsewhere[k] = Array.isArray(v) ? v : String(v).slice(0, 220);
+  });
+  const docs = Array.isArray(data.docs) ? data.docs.filter(d => d && d.name) : [];
   return `${FRAMEWORK}
 
-The user is on step "${stepId}". Here is everything entered across the whole brief so far (JSON):
-${JSON.stringify(data, null, 2)}
+The user is on step "${stepId}". Their answers on THIS step (JSON):
+${JSON.stringify(here, null, 2)}
+
+The rest of the brief, abbreviated — this is what the step above must stay consistent with (JSON):
+${JSON.stringify(elsewhere, null, 2)}
+${docs.length ? `\nResearch attached to this brief (summarised on upload):\n${docs.map(d => `- ${d.name}${d.note ? ` (${d.note})` : ''}${d.digest ? `: ${d.digest}` : ''}`).join('\n')}` : ''}
 
 Do three things, grounded ONLY in what they wrote:
 0) ack — one short, present-tense line acknowledging the LATEST/most important thing they've captured on this step (e.g. "Tracking a $40–55M US budget for Gemini App."). Keep it under 12 words, specific to their actual content, and reassuring. Always return one.
@@ -223,9 +279,52 @@ Conversation so far (JSON):
 ${JSON.stringify(history || [], null, 2)}`;
 }
 
+/* ── who may call this ────────────────────────────────────────────────────────
+   The key lives here, but the endpoint is open to the internet: anyone who
+   finds the URL can spend the quota in a loop. Two cheap gates, neither of
+   which can be the whole answer alone:
+   - same origin. A browser cannot forge Origin, so this stops a page on
+     another site driving the key. It does nothing against curl, which is why
+     there is also
+   - a per-IP daily ceiling. Upstash if the project has it (KV_REST_API_*),
+     otherwise a per-instance counter — imperfect across lambdas, but it still
+     catches the runaway loop, which is the case that actually costs money. */
+const DAILY_CAP = Number(process.env.LTP_DAILY_CAP || 300);
+const KV_URL = process.env.KV_REST_API_URL;
+const KV_TOKEN = process.env.KV_REST_API_TOKEN;
+const localHits = new Map();
+
+function allowedOrigin(req) {
+  const origin = req.headers.origin || '';
+  if (!origin) return true;                       // same-origin fetches often omit it
+  const host = req.headers.host || '';
+  try { return new URL(origin).host === host; } catch { return false; }
+}
+
+async function overCap(ip) {
+  const day = new Date().toISOString().slice(0, 10);
+  const key = `ltpbrief:${day}:${ip}`;
+  if (KV_URL && KV_TOKEN) {
+    try {
+      const r = await fetch(`${KV_URL}/incr/${encodeURIComponent(key)}`, { headers: { Authorization: `Bearer ${KV_TOKEN}` } });
+      const j = await r.json();
+      const n = Number(j.result || 0);
+      if (n === 1) fetch(`${KV_URL}/expire/${encodeURIComponent(key)}/86400`, { headers: { Authorization: `Bearer ${KV_TOKEN}` } }).catch(() => {});
+      return n > DAILY_CAP;
+    } catch { /* fall through to the local counter */ }
+  }
+  const cur = localHits.get(key) || 0;
+  localHits.set(key, cur + 1);
+  if (localHits.size > 5000) localHits.clear();
+  return cur + 1 > DAILY_CAP;
+}
+
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   if (!API_KEY) { res.status(503).json({ error: 'Assistant not configured' }); return; }
+  if (!allowedOrigin(req)) { res.status(403).json({ error: 'Not allowed from this origin' }); return; }
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  if (await overCap(ip)) { res.status(429).json({ error: "That's the assistant's limit for today. Your answers are safe — everything still saves and exports." }); return; }
 
   let payload = req.body;
   if (typeof payload === 'string') { try { payload = JSON.parse(payload); } catch { payload = {}; } }
@@ -253,13 +352,9 @@ module.exports = async (req, res) => {
   try {
     if (action === 'assist') {
       const text = await callGemini({
-        contents: [{ role: 'user', parts: [{ text: assistPrompt(stepId, data || {}) }] }],
-        generationConfig: {
-          temperature: 0.35,
-          responseMimeType: 'application/json',
-          responseSchema: ASSIST_SCHEMA
-        }
-      });
+        contents: [{ role: 'user', parts: [{ text: assistPrompt(stepId, data || {}, payload.fields) }] }],
+        generationConfig: cfg('assist', { responseMimeType: 'application/json', responseSchema: ASSIST_SCHEMA })
+      }, { model: modelFor('assist') });
       let parsed;
       try { parsed = JSON.parse(text); } catch { parsed = { checks: [], suggestions: [] }; }
       res.status(200).json(parsed);
@@ -269,7 +364,7 @@ module.exports = async (req, res) => {
     if (action === 'synthesize') {
       const markdown = await callGemini({
         contents: [{ role: 'user', parts: [{ text: synthesizePrompt(data || {}) }] }],
-        generationConfig: { temperature: 0.4 }
+        generationConfig: cfg('synthesize')
       });
       res.status(200).json({ markdown });
       return;
@@ -278,7 +373,7 @@ module.exports = async (req, res) => {
     if (action === 'ask') {
       const answer = await callGemini({
         contents: [{ role: 'user', parts: [{ text: askPrompt(stepId, data || {}, payload.question || '') }] }],
-        generationConfig: { temperature: 0.5 }
+        generationConfig: cfg('ask')
       });
       res.status(200).json({ answer });
       return;
@@ -287,8 +382,8 @@ module.exports = async (req, res) => {
     if (action === 'funnel-kpis') {
       const text = await callGemini({
         contents: [{ role: 'user', parts: [{ text: funnelPrompt(data || {}) }] }],
-        generationConfig: { temperature: 0.4, responseMimeType: 'application/json', responseSchema: FUNNEL_SCHEMA }
-      });
+        generationConfig: cfg('funnel-kpis', { responseMimeType: 'application/json', responseSchema: FUNNEL_SCHEMA })
+      }, { model: modelFor('funnel-kpis') });
       res.status(200).json(JSON.parse(text));
       return;
     }
@@ -296,8 +391,8 @@ module.exports = async (req, res) => {
     if (action === 'audiences') {
       const text = await callGemini({
         contents: [{ role: 'user', parts: [{ text: audiencePrompt(data || {}) }] }],
-        generationConfig: { temperature: 0.6, responseMimeType: 'application/json', responseSchema: AUDIENCE_SCHEMA }
-      });
+        generationConfig: cfg('audiences', { responseMimeType: 'application/json', responseSchema: AUDIENCE_SCHEMA })
+      }, { model: modelFor('audiences') });
       res.status(200).json(JSON.parse(text));
       return;
     }
@@ -310,8 +405,8 @@ module.exports = async (req, res) => {
       if (payload.text) parts.push({ text: 'Pasted source:\n' + String(payload.text).slice(0, 60000) });
       const text = await callGemini({
         contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0.2, responseMimeType: 'application/json', responseSchema: INGEST_SCHEMA }
-      });
+        generationConfig: cfg('ingest', { responseMimeType: 'application/json', responseSchema: INGEST_SCHEMA })
+      }, { model: modelFor('ingest') });
       res.status(200).json(JSON.parse(text));
       return;
     }
@@ -319,8 +414,8 @@ module.exports = async (req, res) => {
     if (action === 'interview') {
       const text = await callGemini({
         contents: [{ role: 'user', parts: [{ text: interviewPrompt(data || {}, payload.history) }] }],
-        generationConfig: { temperature: 0.5, responseMimeType: 'application/json', responseSchema: INTERVIEW_SCHEMA }
-      });
+        generationConfig: cfg('interview', { responseMimeType: 'application/json', responseSchema: INTERVIEW_SCHEMA })
+      }, { model: modelFor('interview') });
       res.status(200).json(JSON.parse(text));
       return;
     }
@@ -328,10 +423,32 @@ module.exports = async (req, res) => {
     if (action === 'refine') {
       let md = await callGemini({
         contents: [{ role: 'user', parts: [{ text: refinePrompt(payload.heading || '', payload.content || '', payload.instruction || '') }] }],
-        generationConfig: { temperature: 0.5 }
-      });
+        generationConfig: cfg('refine')
+      }, { model: modelFor('refine') });
       md = String(md).replace(/^```(?:markdown)?\s*/i, '').replace(/\s*```$/i, '').trim();
       res.status(200).json({ markdown: md });
+      return;
+    }
+
+    if (action === 'digest') {
+      /* Read an uploaded document ONCE and keep a short brief-shaped summary.
+         The alternative — shipping the file's text with every review call —
+         costs its full length every 700ms while someone types. This costs it
+         a single time, and everything downstream carries 700 characters. */
+      const src = String(payload.text || '').slice(0, 60000);
+      if (!src.trim()) { res.status(200).json({ digest: '' }); return; }
+      const text = await callGemini({
+        contents: [{ role: 'user', parts: [{ text: `${FRAMEWORK}
+
+A document has been attached to a long-term planning brief: "${String(payload.name || 'untitled').slice(0, 200)}".
+
+Summarise what a media planner needs from it, in at most 700 characters: the findings, figures and constraints that would change a plan. Facts only — no preamble, no restating the filename. If it says nothing a planner would act on, reply with one line saying so.
+
+Document:
+${src}` }] }],
+        generationConfig: cfg('digest')
+      }, { model: modelFor('digest') });
+      res.status(200).json({ digest: String(text).trim().slice(0, 900) });
       return;
     }
 

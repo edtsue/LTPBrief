@@ -313,12 +313,30 @@
         entry.text = String(reader.result || '').slice(0, Math.min(DOC_TEXT_CAP, room));
         entry.truncated = entry.text.length < String(reader.result || '').length;
         data.docs.push(entry);
+        digestDoc(entry);
         done();
       };
       reader.onerror = () => { data.docs.push(entry); done(); };
       reader.readAsText(file);
     });
     if (status) { status.hidden = false; status.textContent = queue.length === 1 ? 'Adding 1 document…' : `Adding ${queue.length} documents…`; }
+  }
+
+  /* Read the document once, when it lands. Everything downstream — the review
+     on every step, the questions, the synthesis — then carries 700 characters
+     of what it SAYS instead of the file itself. Failure is quiet on purpose:
+     a summary that didn't come back costs the brief nothing, and the file is
+     still listed. */
+  async function digestDoc(entry) {
+    if (!entry || !entry.text || entry.digest || entry.digesting) return;
+    entry.digesting = true;
+    renderStep();
+    try {
+      const r = await Gemini.digest(entry.name, entry.text);
+      entry.digest = (r && r.digest) || '';
+    } catch { /* listed but unread; the brief still carries the name */ }
+    entry.digesting = false;
+    save(); renderStep(); scheduleAssist();
   }
 
   function docsNode(f) {
@@ -356,8 +374,10 @@
       row.className = 'doc-row';
       const meta = document.createElement('div');
       meta.className = 'doc-meta';
-      meta.innerHTML = '<b>' + escapeHtml(d.name) + '</b><span>' + prettySize(d.size || 0) +
-        (d.text ? ' · text read' + (d.truncated ? ' (trimmed)' : '') : ' · listed only') + '</span>';
+      const state = d.digesting ? ' · reading…' : d.digest ? ' · read — the assistant knows what it says' :
+        d.text ? ' · text read' + (d.truncated ? ' (trimmed)' : '') : ' · listed only';
+      meta.innerHTML = '<b>' + escapeHtml(d.name) + '</b><span>' + prettySize(d.size || 0) + state + '</span>';
+      if (d.digest) meta.title = d.digest;
       const note = document.createElement('input');
       note.type = 'text';
       note.placeholder = 'Why it matters — one line';
@@ -742,7 +762,14 @@
     const seq = ++assistSeq;
     setStatus('thinking');
     try {
-      const res = await Gemini.assist(s.id, data);
+      const here = {};
+      s.groups.forEach(g => g.fields.forEach(f => {
+        if (f.type === 'funnel') { (f.stages || []).forEach(st => { if (data[st.id]) here[st.id] = data[st.id]; }); return; }
+        if (f.type === 'dropzone' || f.type === 'docs') return;
+        if (data[f.id] != null && data[f.id] !== '') here[f.id] = data[f.id];
+        (f.optgroups || []).forEach(og => { if (og.otherId && data[og.otherId]) here[og.otherId] = data[og.otherId]; });
+      }));
+      const res = await Gemini.assist(s.id, data, here);
       if (seq !== assistSeq) return;          // superseded
       assistCache[s.id] = res;
       renderAssist(res);

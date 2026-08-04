@@ -13,6 +13,10 @@ earlier answers and offering pre-fills — then synthesizes a clean brief to han
 5. **Platform, Positioning and Creative** — the idea the brand stands on, how it's positioned, and the creative that carries it — what's available or in production, and when it's ready
 6. **Other Research/Input** — internal research and documents the planning team should read alongside the brief
 
+A document is read **once**, when it lands: the assistant returns a short summary of what
+a planner would act on, and every call after that carries the summary rather than the file.
+So the co-pilot knows what your research says without paying for it on every keystroke.
+
 Documents added on **Other Research/Input** stay on the sender's device — there is nowhere
 to put them — so the brief carries the manifest (name + why it matters) for the planning
 team to request. Text-shaped files (csv, txt, md, json) also have their contents read, up
@@ -38,7 +42,10 @@ npm run dev               # vercel dev
 | Variable | Purpose |
 | --- | --- |
 | `GEMINI_KEY` | Server-side key for the assistant (required for live assist). `GEMINI_API_KEY` also accepted. |
-| `GEMINI_MODEL` | Optional model override (default `gemini-3.6-flash`) |
+| `GEMINI_MODEL` | Optional model override for synthesis, refine, ingest and ask (default `gemini-3.6-flash`) |
+| `GEMINI_FAST_MODEL` | Optional model for the structured, high-frequency calls — review, funnel KPIs, audiences, document digests (default `gemini-flash-lite-latest`) |
+| `LTP_DAILY_CAP` | Assistant calls allowed per IP per day (default 300) |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Optional Upstash Redis, so the daily cap holds across serverless instances rather than per instance |
 
 ## Open in Google Docs
 
