@@ -32,7 +32,7 @@ The brief has five steps:
 1. Context — product area, market, planning year, budget (a range is fine), launch dates, critical internal dates, stakeholders; plus guardrails (constraints/mandatories, X-PA overlaps).
 2. Growth Strategy — the source of brand growth (one growth driver from the taxonomy: increase purchase volume via user base / new users / competitive share / transaction volume / frequency; increase purchase value via revenue per purchase / paying more; or brand extension via new products / a diversified range — or a custom "Other"); the source-of-growth audience (should be specific, not a broad demo); and comms strategy (barriers to overcome, planning principles, and the role of channels).
 3. Landscape — key competitors, category dynamics (where the brand leads vs. lags the leader), the white space to win, and cultural territories / community angles to plan around.
-4. Full Funnel — a KPI per stage (Awareness, Consideration, Intent, Purchase, Loyalty). Every stage should have one; a missing stage is a gap.
+4. Full Funnel — a KPI per stage. The default stages are Awareness, Consideration, Intent, Purchase, Loyalty, but a brief may rename them, drop one or add its own, and that is legitimate: judge the funnel it has, not the default. Every stage present should have a KPI; a stage left empty is a gap.
 5. Platform, Positioning and Creative — the idea the brand stands on, how it is positioned against the alternative, and the creative that carries it: what is available or in production, its status, and readiness dates (flag when readiness misses a launch date).
 6. Other Research/Input — internal research and documents the planning team should read alongside the brief.
 `;
@@ -117,10 +117,18 @@ const INGEST_SCHEMA = {
     summary: { type: 'string' }
   }
 };
+/* Keyed by whatever stages the brief actually has. The five defaults can be
+   renamed, removed or added to, so a schema naming them would quietly fail to
+   fill the ones that matter to this plan. */
 const FUNNEL_SCHEMA = {
   type: 'object',
-  properties: { kpiAwareness: { type: 'string' }, kpiConsideration: { type: 'string' }, kpiIntent: { type: 'string' }, kpiPurchase: { type: 'string' }, kpiLoyalty: { type: 'string' } },
-  required: ['kpiAwareness', 'kpiConsideration', 'kpiIntent', 'kpiPurchase', 'kpiLoyalty']
+  properties: {
+    kpis: {
+      type: 'array',
+      items: { type: 'object', properties: { id: { type: 'string' }, kpi: { type: 'string' } }, required: ['id', 'kpi'] }
+    }
+  },
+  required: ['kpis']
 };
 const AUDIENCE_SCHEMA = {
   type: 'object',
@@ -241,10 +249,16 @@ Current section:
 ${content}`;
 }
 
-function funnelPrompt(data) {
+function funnelPrompt(data, stages) {
+  const list = (Array.isArray(stages) && stages.length ? stages : [])
+    .map(s => `- id "${String(s.id).slice(0, 60)}": ${String(s.label || '').slice(0, 80)}`).join('\n');
   return `${FRAMEWORK}
 
-Propose one measurable, media-impactable KPI for EACH funnel stage (Awareness, Consideration, Intent, Purchase/Action, Loyalty), grounded in the intake so far. Keep each short — a metric, optionally a target. Return all five.
+This brief's funnel has the stages below. They may be renamed, reordered or added to — plan against the stages given, not the default five.
+
+${list}
+
+Propose one measurable, media-impactable KPI for EACH stage, grounded in the intake so far. Keep each short — a metric, optionally a target. Return one entry per stage, using the exact id given.
 
 Intake (JSON):
 ${JSON.stringify(data, null, 2)}`;
@@ -387,7 +401,7 @@ module.exports = async (req, res) => {
 
     if (action === 'funnel-kpis') {
       const text = await callGemini({
-        contents: [{ role: 'user', parts: [{ text: funnelPrompt(data || {}) }] }],
+        contents: [{ role: 'user', parts: [{ text: funnelPrompt(data || {}, (payload.stages || []).slice(0, 12)) }] }],
         generationConfig: cfg('funnel-kpis', { responseMimeType: 'application/json', responseSchema: FUNNEL_SCHEMA })
       }, { model: modelFor('funnel-kpis') });
       res.status(200).json(JSON.parse(text));

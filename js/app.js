@@ -4,16 +4,39 @@
 (() => {
   const STORE_KEY = 'ltpbrief.v1';
   const steps = SCHEMA.steps;
-  const FUNNEL_STAGES = (() => {
+  /* The five stages in the schema are a starting point, not the shape of every
+     plan — a subscription business wants Retention where a launch wants Trial.
+     So the live list lives in `data`, which means it saves, exports and undoes
+     with everything else, and the schema supplies it only until someone edits
+     it. Read it through liveStages(); never touch f.stages directly. */
+  const DEFAULT_STAGES = (() => {
     try { return steps.find(s => s.id === 'funnel').groups.flatMap(g => g.fields).find(f => f.type === 'funnel').stages; }
     catch { return []; }
   })();
-  const FUNNEL_WIDTHS = [100, 85, 70, 57, 46];
+  const STAGE_COLORS = ['#EA4335', '#34A853', '#FBBC04', '#4285F4', '#9B72CB', '#00ACC1', '#F4511E', '#7CB342'];
+  function liveStages() {
+    const custom = data && data.funnelStages;
+    return Array.isArray(custom) && custom.length ? custom : DEFAULT_STAGES;
+  }
+  /* The taper is computed, not a lookup table: it has to look like a funnel at
+     three stages and at eight. Widest stays 100%, narrowest 46%, evenly spaced. */
+  function tierWidth(i, n) {
+    if (n <= 1) return 100;
+    return Math.round(100 - (i * (100 - 46)) / (n - 1));
+  }
+
   const FIELD_STEP = {};
   steps.forEach((s, i) => s.groups.forEach(g => g.fields.forEach(f => {
-    if (f.type === 'funnel') f.stages.forEach(st => { FIELD_STEP[st.id] = i; });
-    else if (f.type !== 'dropzone') { FIELD_STEP[f.id] = i; if (f.otherField) FIELD_STEP[f.id + 'Other'] = i; }
+    if (f.type === 'funnel') return;          // mapped by mapFunnelFields(), which follows the live list
+    if (f.type !== 'dropzone') { FIELD_STEP[f.id] = i; if (f.otherField) FIELD_STEP[f.id + 'Other'] = i; }
   })));
+  /* Click-to-fix jumps to the step owning a field id, so a stage added after
+     boot has to be registered or its check becomes unclickable. */
+  function mapFunnelFields() {
+    const i = steps.findIndex(s => s.id === 'funnel');
+    if (i < 0) return;
+    liveStages().forEach(st => { FIELD_STEP[st.id] = i; });
+  }
 
   const el = {
     steps: document.getElementById('steps'),
@@ -86,7 +109,7 @@
     step.groups.forEach(g => g.fields.forEach(f => {
       if (f.type === 'assets') { if ((data.assets || []).some(r => r && r.name)) any = true; }
       else if (f.type === 'docs') { if ((data.docs || []).length) any = true; }
-      else if (f.type === 'funnel') { if (f.stages.some(s => data[s.id] && String(data[s.id]).trim() !== '')) any = true; }
+      else if (f.type === 'funnel') { if (liveStages().some(s => data[s.id] && String(data[s.id]).trim() !== '')) any = true; }
       else if (f.type === 'pills') { const v = data[f.id]; if (Array.isArray(v) ? v.length : (v && String(v).trim())) any = true; }
       else if (data[f.id] != null && String(data[f.id]).trim() !== '') any = true;
     }));
@@ -254,23 +277,55 @@
     else { const one = String(data.budget || '').match(/(\d+)\s*M/i); if (one) { lo = hi = +one[1]; } }
     lo = Math.max(MIN, Math.min(lo, MAX)); hi = Math.max(lo, Math.min(hi, MAX));
 
+    /* Two handles on one track is only obvious once you have already worked out
+       that it is two handles. So each end carries its own labelled bubble —
+       "Low" and "High" — the scale is marked at both extremes, and the readout
+       says from/to rather than printing a dash between two numbers. */
     const dr = document.createElement('div');
     dr.className = 'dualrange';
-    dr.innerHTML = '<div class="dr-track"><div class="dr-fill"></div></div><input type="range" class="dr-min"><input type="range" class="dr-max">';
+    dr.innerHTML =
+      '<div class="dr-bub lo"><span class="dr-cap">Low</span><b></b></div>' +
+      '<div class="dr-bub hi"><span class="dr-cap">High</span><b></b></div>' +
+      '<div class="dr-track"><div class="dr-fill"></div></div>' +
+      '<input type="range" class="dr-min"><input type="range" class="dr-max">';
     const fill = dr.querySelector('.dr-fill');
     const mn = dr.querySelector('.dr-min');
     const mx = dr.querySelector('.dr-max');
+    const bubLo = dr.querySelector('.dr-bub.lo'), bubHi = dr.querySelector('.dr-bub.hi');
     [mn, mx].forEach(r => { r.min = MIN; r.max = MAX; r.step = STEP; });
     mn.value = lo; mx.value = hi;
+    mn.setAttribute('aria-label', 'Lowest budget in the range');
+    mx.setAttribute('aria-label', 'Highest budget in the range');
+    mn.setAttribute('data-tip', 'Drag for the low end of the range');
+    mx.setAttribute('data-tip', 'Drag for the high end of the range');
+
+    const fmt = v => '$' + v + 'M';
+    const ends = document.createElement('div');
+    ends.className = 'dr-ends';
+    ends.innerHTML = `<span>${fmt(MIN)}</span><span>${fmt(MAX)}</span>`;
+
     const read = document.createElement('div');
     read.className = 'dr-read';
-    const fmt = v => '$' + v + 'M';
+    const hint = document.createElement('div');
+    hint.className = 'dr-hint';
+    hint.textContent = 'Drag each end separately — a range is fine, and a single number is fine too (drag them together).';
+
     function update(persist) {
       let a = +mn.value, b = +mx.value;
       if (a > b) { if (document.activeElement === mn) { b = a; mx.value = b; } else { a = b; mn.value = a; } }
       const lp = (a - MIN) / (MAX - MIN) * 100, rp = (b - MIN) / (MAX - MIN) * 100;
       fill.style.left = lp + '%'; fill.style.width = (rp - lp) + '%';
-      read.textContent = (a === b ? fmt(a) : fmt(a) + ' – ' + fmt(b)) + ' working media';
+      bubLo.style.left = lp + '%'; bubHi.style.left = rp + '%';
+      bubLo.querySelector('b').textContent = fmt(a);
+      bubHi.querySelector('b').textContent = fmt(b);
+      /* Sitting on the same value the two bubbles would overlap into an
+         unreadable smudge, so the pair collapses into one. */
+      const together = Math.abs(rp - lp) < 9;
+      bubLo.classList.toggle('merged', together);
+      bubHi.classList.toggle('merged', together);
+      read.textContent = a === b
+        ? fmt(a) + ' working media'
+        : 'From ' + fmt(a) + ' to ' + fmt(b) + ' working media';
       if (persist !== false) { data.budget = a === b ? fmt(a) : fmt(a) + ' – ' + fmt(b); save(); scheduleAssist(); markRail(); }
     }
     mn.addEventListener('input', () => update());
@@ -278,7 +333,7 @@
     mn.addEventListener('change', () => runAssist());
     mx.addEventListener('change', () => runAssist());
     update(false);
-    wrap.append(dr, read);
+    wrap.append(dr, ends, read, hint);
     return wrap;
   }
 
@@ -342,6 +397,7 @@
   function docsNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field full';
+    if (f.label) wrap.appendChild(makeLabel(f.label, f.help));
 
     const zone = document.createElement('div');
     zone.className = 'dropzone docs-zone';
@@ -585,10 +641,14 @@
       const orig = suggest.innerHTML;
       suggest.innerHTML = '<svg class="gstar sp"><use href="#star"/></svg> Thinking…';
       try {
-        const r = await Gemini.funnelKpis(data);
+        // the model is told which stages exist, so a renamed or added one is filled too
+        const r = await Gemini.funnelKpis(data, liveStages().map(s => ({ id: s.id, label: s.label })));
         pushUndo();
-        f.stages.forEach(st => {
-          if (r[st.id]) { data[st.id] = r[st.id]; const inp = document.getElementById('f_' + st.id); if (inp) inp.value = r[st.id]; }
+        const byId = {};
+        (r && Array.isArray(r.kpis) ? r.kpis : []).forEach(k => { if (k && k.id) byId[k.id] = k.kpi; });
+        liveStages().forEach(st => {
+          const v = byId[st.id];
+          if (v) { data[st.id] = v; const inp = document.getElementById('f_' + st.id); if (inp) inp.value = v; }
         });
         save(); markRail(); runAssist(); syncReset(); toastAction('Funnel KPIs added', 'Undo', doUndo);
       } catch (e) { toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not suggest just now.'); }
@@ -603,12 +663,12 @@
     reset.type = 'button'; reset.className = 'mini-reset';
     reset.textContent = 'Reset funnel';
     reset.setAttribute('data-tip', 'Clear every stage — undo is offered after');
-    const anyFilled = () => f.stages.some(st => data[st.id] != null && String(data[st.id]).trim() !== '');
+    const anyFilled = () => liveStages().some(st => data[st.id] != null && String(data[st.id]).trim() !== '');
     const syncReset = () => { reset.disabled = !anyFilled(); };
     reset.addEventListener('click', () => {
       if (!anyFilled()) return;
       pushUndo();
-      f.stages.forEach(st => {
+      liveStages().forEach(st => {
         data[st.id] = '';
         const inp = document.getElementById('f_' + st.id);
         // the input event is what tells each field's own × to hide again
@@ -620,31 +680,119 @@
 
     const actions = document.createElement('div');
     actions.className = 'funnel-actions';
-    actions.append(suggest, reset);
+    /* The row is space-between, so the left side is grouped — a bare third
+       child would strand Reset in the middle. The funnel has no label of its
+       own (the group heading does that job), so its description hangs off an
+       ⓘ here, the same affordance as every other field's. */
+    const left = document.createElement('div');
+    left.className = 'funnel-actions-left';
+    left.appendChild(suggest);
+    if (f.help) {
+      const i = document.createElement('span');
+      i.className = 'info'; i.textContent = 'ⓘ'; i.tabIndex = 0;
+      i.setAttribute('data-tip', f.help);
+      left.appendChild(i);
+    }
+    actions.append(left, reset);
     wrap.appendChild(actions);
 
     const funnel = document.createElement('div');
     funnel.className = 'funnel';
-    const widths = [100, 85, 70, 57, 46];
-    f.stages.forEach((st, i) => {
+
+    /* Editing the list re-renders the whole field rather than patching tiers:
+       every width depends on how many stages there are, so a local edit is a
+       full relayout anyway. */
+    const redraw = () => {
+      mapFunnelFields();
+      const fresh = funnelNode(f);
+      wrap.replaceWith(fresh);
+      save(); markRail(); runAssist();
+    };
+    /* Committing to data.funnelStages is what turns the defaults into the
+       user's own list — before the first edit there is nothing stored, so a
+       schema change would still reach anyone who never touched the funnel. */
+    const commitStages = next => { data.funnelStages = next.map(s => Object.assign({}, s)); };
+
+    const stages = liveStages();
+    stages.forEach((st, i) => {
       const tier = document.createElement('div');
       tier.className = 'ftier';
-      tier.style.setProperty('--w', (widths[i] != null ? widths[i] : 54) + '%');
-      tier.style.setProperty('--c', st.color);
-      const lab = document.createElement('span');
-      lab.className = 'fstage';
-      lab.textContent = st.label;
+      tier.style.setProperty('--w', tierWidth(i, stages.length) + '%');
+      tier.style.setProperty('--c', st.color || STAGE_COLORS[i % STAGE_COLORS.length]);
+
+      /* The stage name is the thing being customised, so it is an input, not a
+         label. It looks like text until you click it. */
+      const lab = document.createElement('input');
+      lab.className = 'fstage fstage-edit';
+      lab.type = 'text';
+      lab.value = st.label;
+      lab.setAttribute('aria-label', 'Stage name');
+      lab.setAttribute('data-tip', 'Rename this stage');
+      lab.addEventListener('input', () => {
+        const next = liveStages().map(s => Object.assign({}, s));
+        next[i].label = lab.value;
+        commitStages(next);
+        save();
+      });
+      lab.addEventListener('blur', () => {
+        // an unnamed stage cannot be read in the brief, so it never stays empty
+        if (!lab.value.trim()) { lab.value = st.label || 'Stage ' + (i + 1); lab.dispatchEvent(new Event('input')); }
+        runAssist();
+      });
+
       const input = document.createElement('input');
       input.type = 'text';
       input.id = 'f_' + st.id;
-      input.placeholder = st.placeholder || '';
+      input.placeholder = st.placeholder || 'The measure for this stage';
       if (data[st.id] != null) input.value = data[st.id];
       input.addEventListener('input', () => { data[st.id] = input.value; save(); scheduleAssist(); markRail(); syncReset(); });
       input.addEventListener('blur', () => runAssist());
-      tier.append(lab, wrapClear(input, false));
+
+      const rm = document.createElement('button');
+      rm.type = 'button'; rm.className = 'fstage-rm';
+      rm.innerHTML = '&times;';
+      rm.setAttribute('aria-label', 'Remove ' + st.label);
+      rm.setAttribute('data-tip', 'Remove this stage');
+      /* A funnel of one is not a funnel, and the last stage taking its KPI with
+         it silently would be a trap — so undo is offered, as with Reset. */
+      rm.disabled = stages.length <= 1;
+      rm.addEventListener('click', () => {
+        if (liveStages().length <= 1) return;
+        pushUndo();
+        const next = liveStages().filter((_, j) => j !== i).map(s => Object.assign({}, s));
+        commitStages(next);
+        delete data[st.id];
+        redraw();
+        toastAction('Stage removed', 'Undo', doUndo);
+      });
+
+      tier.append(lab, wrapClear(input, false), rm);
       funnel.appendChild(tier);
     });
     wrap.appendChild(funnel);
+
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'fstage-add';
+    add.textContent = '+ Add a stage';
+    add.setAttribute('data-tip', 'Add a stage to the funnel — name it whatever the plan calls it');
+    add.addEventListener('click', () => {
+      pushUndo();
+      const cur = liveStages();
+      // ids must be unique and stable: they key the answer in `data` and in the brief
+      let n = cur.length + 1, id;
+      do { id = 'kpiStage' + n++; } while (cur.some(s => s.id === id));
+      const next = cur.map(s => Object.assign({}, s));
+      next.push({ id, label: 'New stage', color: STAGE_COLORS[cur.length % STAGE_COLORS.length], placeholder: 'The measure for this stage' });
+      commitStages(next);
+      data[id] = '';
+      redraw();
+      // land the cursor in the new name, since naming it is the next thing to do
+      const fresh = document.querySelectorAll('.funnel .ftier .fstage-edit');
+      const last = fresh[fresh.length - 1];
+      if (last) { last.focus(); last.select(); }
+    });
+    wrap.appendChild(add);
+
     syncReset();
     return wrap;
   }
@@ -764,7 +912,7 @@
     try {
       const here = {};
       s.groups.forEach(g => g.fields.forEach(f => {
-        if (f.type === 'funnel') { (f.stages || []).forEach(st => { if (data[st.id]) here[st.id] = data[st.id]; }); return; }
+        if (f.type === 'funnel') { liveStages().forEach(st => { if (data[st.id]) here[st.id] = data[st.id]; }); return; }
         if (f.type === 'dropzone' || f.type === 'docs') return;
         if (data[f.id] != null && data[f.id] !== '') here[f.id] = data[f.id];
         (f.optgroups || []).forEach(og => { if (og.otherId && data[og.otherId]) here[og.otherId] = data[og.otherId]; });
@@ -872,7 +1020,7 @@
     const gd = data.growthDriver;
     if (!(Array.isArray(gd) ? gd.length : !!gd)) issues.push({ label: 'Source of brand growth', field: 'growthDriver' });
     if (!(data.sourceAudience && data.sourceAudience.trim())) issues.push({ label: 'Growth audience', field: 'sourceAudience' });
-    FUNNEL_STAGES.forEach(s => { if (!(data[s.id] && String(data[s.id]).trim())) issues.push({ label: s.label + ' KPI', field: s.id }); });
+    liveStages().forEach(s => { if (!(data[s.id] && String(data[s.id]).trim())) issues.push({ label: s.label + ' KPI', field: s.id }); });
     return issues;
   }
   function renderReadiness() {
@@ -897,21 +1045,22 @@
   }
   // Replace the Full Funnel section body with the funnel pyramid visual (reflecting current data).
   function injectFunnel(container) {
-    if (!FUNNEL_STAGES.length) return;
+    const stages = liveStages();
+    if (!stages.length) return;
     let target = null;
     container.querySelectorAll('h2').forEach(h => { if ((h.textContent || '').trim().toLowerCase().indexOf('full funnel') === 0) target = h; });
     if (!target) return;
     let n = target.nextSibling;
     while (n && n.nodeName !== 'H2') { const nx = n.nextSibling; n.remove(); n = nx; }
-    if (!FUNNEL_STAGES.some(s => (data[s.id] || '').trim())) {
+    if (!stages.some(s => (data[s.id] || '').trim())) {
       const p = document.createElement('p'); p.className = 'placeholder'; p.textContent = 'No funnel KPIs yet.'; target.after(p); return;
     }
     const fn = document.createElement('div'); fn.className = 'bf-funnel';
-    FUNNEL_STAGES.forEach((s, i) => {
+    stages.forEach((s, i) => {
       const v = (data[s.id] || '').trim();
       const tier = document.createElement('div'); tier.className = 'bf-tier';
-      tier.style.setProperty('--w', (FUNNEL_WIDTHS[i] != null ? FUNNEL_WIDTHS[i] : 46) + '%');
-      tier.style.setProperty('--c', s.color);
+      tier.style.setProperty('--w', tierWidth(i, stages.length) + '%');
+      tier.style.setProperty('--c', s.color || STAGE_COLORS[i % STAGE_COLORS.length]);
       const st = document.createElement('div'); st.className = 'bf-stage'; st.textContent = s.label;
       const kp = document.createElement('div'); kp.className = 'bf-kpi'; kp.textContent = v || '—';
       tier.append(st, kp); fn.appendChild(tier);
@@ -1383,6 +1532,7 @@
 
   /* ---------- hover tooltips ---------- */
   let tipEl = null;
+  let tipFor = null;   // which element the visible tip belongs to (touch toggling needs to know)
   function initTooltips() {
     document.addEventListener('mouseover', e => {
       const t = e.target.closest && e.target.closest('[data-tip]');
@@ -1391,6 +1541,16 @@
     document.addEventListener('mouseout', e => {
       const t = e.target.closest && e.target.closest('[data-tip]');
       if (t) hideTip();
+    });
+    /* A touch screen never hovers, so on a phone every one of these
+       descriptions was unreachable. There a tap toggles the tip and a tap
+       anywhere else dismisses it; on a mouse, click is left alone so it does
+       not fight the hover. */
+    document.addEventListener('click', e => {
+      if (!matchMedia('(hover: none)').matches) return;
+      const t = e.target.closest && e.target.closest('[data-tip]');
+      if (!t) { hideTip(); return; }
+      if (tipFor === t) hideTip(); else showTip(t);
     });
     document.addEventListener('focusin', e => {
       const t = e.target.closest && e.target.closest('[data-tip]');
@@ -1403,6 +1563,7 @@
     const text = target.getAttribute('data-tip');
     if (!text) return;
     if (!tipEl) { tipEl = document.createElement('div'); tipEl.className = 'tip'; document.body.appendChild(tipEl); }
+    tipFor = target;
     tipEl.textContent = text;
     tipEl.style.opacity = '0';
     const r = target.getBoundingClientRect();
@@ -1417,7 +1578,7 @@
     tipEl.classList.toggle('below', placeBelow);
     tipEl.style.opacity = '1';
   }
-  function hideTip() { if (tipEl) tipEl.style.opacity = '0'; }
+  function hideTip() { if (tipEl) tipEl.style.opacity = '0'; tipFor = null; }
 
   /* ---------- coach marks (guided tour) ---------- */
   const TOUR_KEY = 'ltpbrief.tour';
@@ -1500,6 +1661,7 @@
   if (cohdEl) cohdEl.addEventListener('click', () => { document.getElementById('copilot').classList.toggle('open'); });
 
   /* ---------- boot ---------- */
+  mapFunnelFields();   // a saved custom funnel needs its stages routable before the first render
   renderStep();
   initTooltips();
   maybeTour();

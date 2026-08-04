@@ -89,8 +89,8 @@ const Gemini = (() => {
       return call('refine', { heading, content, instruction });
     },
     // Suggest a KPI for every funnel stage. -> { kpiAwareness, ... }
-    funnelKpis(data) {
-      return call('funnel-kpis', { data: lean(data) });
+    funnelKpis(data, stages) {
+      return call('funnel-kpis', { data: lean(data), stages });
     },
     // Candidate source-of-growth audiences. -> { options: [{title,definition,rationale}] }
     audiences(data) {

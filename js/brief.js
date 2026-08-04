@@ -70,8 +70,16 @@ const Brief = (() => {
     L.push('');
 
     L.push('## Full Funnel', '');
-    const kpis = [['kpiAwareness', 'Awareness'], ['kpiConsideration', 'Consideration'], ['kpiIntent', 'Intent'], ['kpiPurchase', 'Purchase / Action'], ['kpiLoyalty', 'Loyalty']];
-    kpis.forEach(([id, lbl]) => { if (val(data, id)) L.push(`- **${lbl}:** ${val(data, id)}`); });
+    /* The stage list is the plan's, not the schema's — someone may have renamed
+       Loyalty to Retention or added one. Fall back to the schema only when the
+       funnel was never edited. */
+    const kpis = (Array.isArray(data.funnelStages) && data.funnelStages.length)
+      ? data.funnelStages
+      : (() => {
+          try { return SCHEMA.steps.find(s => s.id === 'funnel').groups.flatMap(g => g.fields).find(f => f.type === 'funnel').stages; }
+          catch { return []; }
+        })();
+    kpis.forEach(st => { if (val(data, st.id)) L.push(`- **${st.label}:** ${val(data, st.id)}`); });
     L.push('');
 
     L.push('## Platform, Positioning and Creative', '');
