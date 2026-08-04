@@ -1,6 +1,7 @@
 // Serverless proxy for the intake assistant.
 // Keeps the API key server-side and shapes two actions: `assist` and `synthesize`.
 
+const gate = require('./_gate');
 const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 const FAST_MODEL = process.env.GEMINI_FAST_MODEL || 'gemini-flash-lite-latest';
 
@@ -323,6 +324,10 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   if (!API_KEY) { res.status(503).json({ error: 'Assistant not configured' }); return; }
   if (!allowedOrigin(req)) { res.status(403).json({ error: 'Not allowed from this origin' }); return; }
+  /* The gate is enforced HERE, not only in the browser. The static files are
+     public whatever the overlay does; the key behind this endpoint is the
+     thing that must not be spendable by someone who was never let in. */
+  if (!gate.passed(req)) { res.status(401).json({ error: 'Locked' }); return; }
   const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
   if (await overCap(ip)) { res.status(429).json({ error: "That's the assistant's limit for today. Your answers are safe — everything still saves and exports." }); return; }
 

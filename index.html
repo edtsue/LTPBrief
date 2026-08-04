@@ -119,5 +119,20 @@
   <script src="js/gemini.js"></script>
   <script src="js/brief.js"></script>
   <script src="js/app.js"></script>
+  <!-- The front door. Hidden until the gate says this browser needs it, so a
+       remembered visitor never sees a flash of lock screen. -->
+  <div id="gate" class="gate" hidden>
+    <form class="gate-card" id="gateForm">
+      <svg class="gstar gate-star"><use href="#star"/></svg>
+      <h1>LTP Brief</h1>
+      <p>An assisted intake for long-term media planning. Enter the password to continue.</p>
+      <input id="gatePw" type="password" placeholder="Password" autocomplete="current-password"
+             aria-label="Password" spellcheck="false" />
+      <button type="submit" class="btn primary" id="gateGo">Continue</button>
+      <div class="gate-err" id="gateErr" role="alert" hidden></div>
+      <div class="gate-note">This browser stays signed in for 7 days.</div>
+    </form>
+  </div>
+  <script src="js/gate.js"></script>
 </body>
 </html>

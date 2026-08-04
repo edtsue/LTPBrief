@@ -30,6 +30,20 @@ Answers autosave to the browser. The final step generates an exportable brief
 - Static front end (`index.html`, `css/`, `js/`) — no build step
 - One serverless function (`api/gemini.js`) proxies the model so the key stays server-side
 
+## The gate
+
+Set `GATE_PW` in Vercel and the tool asks for it once; the browser is then
+remembered for seven days via a signed, HttpOnly cookie. There is nothing to
+store — the cookie carries its own expiry and a signature made with the
+password, so changing `GATE_PW` invalidates every session already issued.
+
+It is enforced on `/api/gemini`, not only in the browser. This is a no-build
+static site: `index.html`, `css/` and `js/` are served from the repo root and
+stay publicly fetchable whatever the overlay does. What the gate actually
+protects is the use of the tool and the Gemini key behind it. Briefs live in
+the browser of whoever wrote them, so there is no stored client data behind
+this either way.
+
 ## Local development
 
 ```bash
@@ -41,6 +55,7 @@ npm run dev               # vercel dev
 
 | Variable | Purpose |
 | --- | --- |
+| `GATE_PW` | Password for the front door. Set it and the tool asks once, then remembers that browser for 7 days. Leave it unset and the tool is open. Changing it signs everyone out. |
 | `GEMINI_KEY` | Server-side key for the assistant (required for live assist). `GEMINI_API_KEY` also accepted. |
 | `GEMINI_MODEL` | Optional model override for synthesis, refine, ingest and ask (default `gemini-3.6-flash`) |
 | `GEMINI_FAST_MODEL` | Optional model for the structured, high-frequency calls — review, funnel KPIs, audiences, document digests (default `gemini-flash-lite-latest`) |

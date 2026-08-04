@@ -555,3 +555,31 @@ body{
   .asset-row{grid-template-columns:1fr}
   .asset-row .rm{grid-column:1;justify-self:start;width:100%}
 }
+
+/* ── the front door ──────────────────────────────────────────────────────────
+   Same Aurora Glass as the tool behind it, so the password step reads as the
+   first screen of the product rather than a bolted-on challenge. */
+.gate{position:fixed;inset:0;z-index:200;display:grid;place-items:center;padding:24px;
+  background:var(--bg);}
+.gate::before{content:"";position:absolute;inset:-25%;pointer-events:none;filter:blur(90px);opacity:.6;
+  background:
+    radial-gradient(580px 580px at 8% -6%,#8AB4F8,transparent 70%),
+    radial-gradient(520px 520px at 96% 10%,#F5A9C0,transparent 70%),
+    radial-gradient(500px 500px at 42% 104%,#C58AF9,transparent 70%);
+  animation:drift 22s ease-in-out infinite alternate}
+.gate-card{position:relative;width:min(380px,100%);display:flex;flex-direction:column;gap:12px;
+  padding:34px 30px 26px;border-radius:24px;text-align:center;
+  background:var(--docpanel);border:1px solid var(--fieldline);
+  backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);box-shadow:var(--shadow-lg)}
+.gate-star{width:34px;height:34px;align-self:center}
+.gate-card h1{margin:2px 0 0;font-size:21px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.gate-card p{margin:0 0 6px;font-size:13.5px;line-height:1.55;color:var(--ink3)}
+.gate-card input{font-family:inherit;font-size:15px;text-align:center;padding:13px 16px;border-radius:14px;
+  border:1px solid var(--fieldline);background:var(--field);color:var(--ink)}
+.gate-card input::placeholder{color:var(--ink3)}
+.gate-card .btn{justify-content:center;width:100%}
+.gate-err{font-size:12.5px;color:var(--gapInk);background:var(--gapBg);border:1px solid var(--gapLine);
+  border-radius:10px;padding:8px 12px}
+.gate-note{font-size:11.5px;color:var(--ink3);margin-top:2px}
+/* nothing behind the door moves while it is shut */
+body.gated{overflow:hidden}
