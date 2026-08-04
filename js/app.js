@@ -39,6 +39,7 @@
   }
 
   const el = {
+    app: document.getElementById('app'),
     steps: document.getElementById('steps'),
     progLabel: document.getElementById('progLabel'),
     progFill: document.getElementById('progFill'),
@@ -1891,7 +1892,36 @@
 
   // Mobile: tap the co-pilot header to open/close the drawer.
   const cohdEl = document.querySelector('.cohd');
-  if (cohdEl) cohdEl.addEventListener('click', () => { document.getElementById('copilot').classList.toggle('open'); });
+  if (cohdEl) cohdEl.addEventListener('click', e => {
+    if (e.target.closest('.co-toggle')) return;   // desktop collapse has its own handler
+    document.getElementById('copilot').classList.toggle('open');
+  });
+
+  /* Collapsing the Gemini panel. Open by default — it is the point of the tool
+     — but it holds a third of the width, and someone writing long answers
+     wants that back. The choice is remembered, because re-collapsing it on
+     every load would be its own small annoyance. */
+  const CO_KEY = 'ltpbrief.copilot';
+  const coToggle = document.getElementById('coToggle');
+  function setCopilot(collapsed) {
+    el.app.classList.toggle('co-collapsed', collapsed);
+    if (coToggle) {
+      coToggle.setAttribute('aria-expanded', String(!collapsed));
+      const label = (collapsed ? 'Expand' : 'Collapse') + ' the Gemini panel';
+      coToggle.setAttribute('aria-label', label);
+      coToggle.setAttribute('data-tip', label);
+    }
+    try { localStorage.setItem(CO_KEY, collapsed ? '1' : '0'); } catch {}
+  }
+  if (coToggle) {
+    coToggle.addEventListener('click', e => {
+      e.stopPropagation();   // the header click toggles the mobile drawer
+      setCopilot(!el.app.classList.contains('co-collapsed'));
+    });
+    let saved = null;
+    try { saved = localStorage.getItem(CO_KEY); } catch {}
+    if (saved === '1') setCopilot(true);
+  }
 
   /* ---------- boot ---------- */
   mapFunnelFields();   // a saved custom funnel needs its stages routable before the first render
