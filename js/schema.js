@@ -109,14 +109,44 @@ const SCHEMA = {
       ]
     },
     {
-      id: 'assets',
-      name: 'Existing Assets',
-      title: 'Existing Assets',
-      sub: 'What creative you have or are making, and when each lands — so flighting is planned against real availability.',
+      id: 'platform',
+      name: 'Platform, Positioning and Creative',
+      title: 'Platform, Positioning and Creative',
+      sub: 'What the brand stands on, how it is positioned against the competition, and the creative that carries it — including when each asset lands, so flighting is planned against real availability.',
+      groups: [
+        {
+          title: 'Platform & positioning',
+          fields: [
+            { id: 'platform', label: 'Brand platform', type: 'textarea', full: true,
+              placeholder: 'The idea the brand stands on — the throughline everything ladders back to' },
+            { id: 'positioning', label: 'Positioning', type: 'textarea', full: true,
+              placeholder: 'Who it is for, what it replaces, and the claim it makes against the alternative',
+              help: 'The sentence the plan has to make land. If Landscape says where you can win, this is what you say when you get there.' }
+          ]
+        },
+        {
+          title: 'Creative',
+          fields: [
+            { id: 'assets', label: 'Creative assets', type: 'assets' }
+          ]
+        }
+      ]
+    },
+    {
+      id: 'research',
+      name: 'Other Research/Input',
+      title: 'Other Research/Input',
+      sub: 'Internal research, decks, trackers, anything else the planning team should read alongside this brief.',
       groups: [
         {
           fields: [
-            { id: 'assets', label: 'Assets', type: 'assets' }
+            { id: 'docs', label: 'Documents', type: 'docs', full: true }
+          ]
+        },
+        {
+          fields: [
+            { id: 'researchNotes', label: 'Anything else the planning team should know', type: 'textarea', full: true,
+              placeholder: 'Findings that shaped the brief, debates still open, work already ruled out…' }
           ]
         }
       ]

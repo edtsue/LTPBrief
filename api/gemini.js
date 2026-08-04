@@ -13,7 +13,8 @@ The brief has five steps:
 2. Growth Strategy — the source of brand growth (one growth driver from the taxonomy: increase purchase volume via user base / new users / competitive share / transaction volume / frequency; increase purchase value via revenue per purchase / paying more; or brand extension via new products / a diversified range — or a custom "Other"); the source-of-growth audience (should be specific, not a broad demo); and comms strategy (barriers to overcome, planning principles, and the role of channels).
 3. Landscape — key competitors, category dynamics (where the brand leads vs. lags the leader), the white space to win, and cultural territories / community angles to plan around.
 4. Full Funnel — a KPI per stage (Awareness, Consideration, Intent, Purchase, Loyalty). Every stage should have one; a missing stage is a gap.
-5. Existing Assets — creative available or in production, its status, and readiness dates (flag when readiness misses a launch date).
+5. Platform, Positioning and Creative — the idea the brand stands on, how it is positioned against the alternative, and the creative that carries it: what is available or in production, its status, and readiness dates (flag when readiness misses a launch date).
+6. Other Research/Input — internal research and documents the planning team should read alongside the brief.
 `;
 
 const FIELD_IDS = {
@@ -21,7 +22,8 @@ const FIELD_IDS = {
   growth: ['growthDriver', 'growthDriverOther', 'sourceAudience', 'commsStrategy'],
   landscape: ['competitors', 'categoryDynamics', 'whiteSpace', 'culturalTerritories'],
   funnel: ['kpiAwareness', 'kpiConsideration', 'kpiIntent', 'kpiPurchase', 'kpiLoyalty'],
-  assets: ['assets']
+  platform: ['platform', 'positioning', 'assets'],
+  research: ['researchNotes']
 };
 
 const ASSIST_SCHEMA = {
@@ -77,10 +79,13 @@ const CATALOG = `Field ids you may fill (all optional — only include what the 
 - categoryDynamics: where the brand leads vs lags
 - whiteSpace: where the brand can win
 - kpiAwareness, kpiConsideration, kpiIntent, kpiPurchase, kpiLoyalty: one KPI per funnel stage
-- culturalTerritories: cultural territories / community angles`;
+- culturalTerritories: cultural territories / community angles
+- platform: the brand platform — the idea everything ladders back to
+- positioning: who it is for, what it replaces, the claim against the alternative
+- researchNotes: anything else the planning team should know`;
 
 const FIELD_PROPS = {};
-['productArea','market','planningYear','budget','launchDates','internalDates','stakeholders','constraints','xpaOverlaps','growthDriver','growthDriverOther','sourceAudience','commsStrategy','competitors','categoryDynamics','whiteSpace','kpiAwareness','kpiConsideration','kpiIntent','kpiPurchase','kpiLoyalty','culturalTerritories']
+['productArea','market','planningYear','budget','launchDates','internalDates','stakeholders','constraints','xpaOverlaps','growthDriver','growthDriverOther','sourceAudience','commsStrategy','competitors','categoryDynamics','whiteSpace','kpiAwareness','kpiConsideration','kpiIntent','kpiPurchase','kpiLoyalty','culturalTerritories','platform','positioning','researchNotes']
   .forEach(k => { FIELD_PROPS[k] = { type: 'string' }; });
 
 const INGEST_SCHEMA = {

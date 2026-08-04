@@ -68,8 +68,14 @@
     el.saveState.classList.add('saving');
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      localStorage.setItem(STORE_KEY, JSON.stringify(data));
-      el.saveState.textContent = 'Saved ✓';
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(data));
+        el.saveState.textContent = 'Saved ✓';
+      } catch {
+        // Almost always the quota, now that documents carry text with them.
+        // Say so rather than sitting on "Saving…" forever.
+        el.saveState.textContent = 'Too big to autosave — use Save to file';
+      }
       el.saveState.classList.remove('saving');
     }, 400);
   }
@@ -79,6 +85,7 @@
     let any = false;
     step.groups.forEach(g => g.fields.forEach(f => {
       if (f.type === 'assets') { if ((data.assets || []).some(r => r && r.name)) any = true; }
+      else if (f.type === 'docs') { if ((data.docs || []).length) any = true; }
       else if (f.type === 'funnel') { if (f.stages.some(s => data[s.id] && String(data[s.id]).trim() !== '')) any = true; }
       else if (f.type === 'pills') { const v = data[f.id]; if (Array.isArray(v) ? v.length : (v && String(v).trim())) any = true; }
       else if (data[f.id] != null && String(data[f.id]).trim() !== '') any = true;
@@ -152,6 +159,7 @@
     wrap.dataset.field = f.id;
 
     if (f.type === 'assets') { return assetsNode(f); }
+    if (f.type === 'docs') { return docsNode(f); }
     if (f.type === 'funnel') { return funnelNode(f); }
     if (f.type === 'pills') { return pillsNode(f); }
     if (f.type === 'dropzone') { return dropzoneNode(f); }
@@ -271,6 +279,104 @@
     mx.addEventListener('change', () => runAssist());
     update(false);
     wrap.append(dr, read);
+    return wrap;
+  }
+
+  /* ---------- other research / input ----------
+     These files never leave the browser: there is no server to put them on,
+     and pretending otherwise would be the worst kind of lie in an intake form.
+     What the brief carries is the LIST — name, size, and why it matters — so
+     the planning team knows what to ask for, plus the text of anything
+     text-shaped so the co-pilot can actually reason against it. A PDF is
+     recorded but not read; the "Start from a document" box on Context is the
+     tool for pulling fields out of one. */
+  const DOC_TEXT_CAP = 12000;    // per document
+  const DOC_TOTAL_CAP = 90000;   // across all of them, to stay inside localStorage
+  const isTextual = file => /^text\//.test(file.type) || /\.(csv|tsv|txt|md|json|rtf)$/i.test(file.name);
+  const prettySize = n => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : (n / 1048576).toFixed(1) + ' MB';
+
+  function docsTextBudget() {
+    return (data.docs || []).reduce((n, d) => n + (d.text ? d.text.length : 0), 0);
+  }
+  function addDocs(files, status) {
+    if (!data.docs) data.docs = [];
+    const queue = Array.from(files || []);
+    if (!queue.length) return;
+    let pending = queue.length;
+    const done = () => { if (--pending === 0) { save(); renderStep(); } };
+    queue.forEach(file => {
+      const entry = { name: file.name, size: file.size, type: file.type || '', note: '', text: '' };
+      if (!isTextual(file)) { data.docs.push(entry); done(); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const room = Math.max(0, DOC_TOTAL_CAP - docsTextBudget());
+        entry.text = String(reader.result || '').slice(0, Math.min(DOC_TEXT_CAP, room));
+        entry.truncated = entry.text.length < String(reader.result || '').length;
+        data.docs.push(entry);
+        done();
+      };
+      reader.onerror = () => { data.docs.push(entry); done(); };
+      reader.readAsText(file);
+    });
+    if (status) { status.hidden = false; status.textContent = queue.length === 1 ? 'Adding 1 document…' : `Adding ${queue.length} documents…`; }
+  }
+
+  function docsNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full';
+
+    const zone = document.createElement('div');
+    zone.className = 'dropzone docs-zone';
+    zone.innerHTML =
+      '<div class="dz-inner">' +
+      '<svg class="gstar"><use href="#star"/></svg>' +
+      '<div class="dz-text"><b>Add research &amp; input</b>' +
+      '<span>Decks, trackers, transcripts, notes — drop them in or choose files</span></div>' +
+      '<button type="button" class="dz-btn">Choose files…</button>' +
+      '<input type="file" multiple hidden>' +
+      '</div><div class="dz-status" hidden></div>';
+    const input = zone.querySelector('input[type=file]');
+    const status = zone.querySelector('.dz-status');
+    zone.querySelector('.dz-btn').addEventListener('click', e => { e.stopPropagation(); input.click(); });
+    zone.addEventListener('click', () => input.click());
+    input.addEventListener('change', () => addDocs(input.files, status));
+    ['dragenter', 'dragover'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.add('over'); }));
+    ['dragleave', 'dragend'].forEach(ev => zone.addEventListener(ev, e => { e.preventDefault(); zone.classList.remove('over'); }));
+    zone.addEventListener('drop', e => {
+      e.preventDefault(); zone.classList.remove('over');
+      addDocs(e.dataTransfer.files, status);
+    });
+    wrap.appendChild(zone);
+
+    const list = document.createElement('div');
+    list.className = 'docs';
+    const rows = Array.isArray(data.docs) ? data.docs : [];
+    rows.forEach((d, idx) => {
+      const row = document.createElement('div');
+      row.className = 'doc-row';
+      const meta = document.createElement('div');
+      meta.className = 'doc-meta';
+      meta.innerHTML = '<b>' + escapeHtml(d.name) + '</b><span>' + prettySize(d.size || 0) +
+        (d.text ? ' · text read' + (d.truncated ? ' (trimmed)' : '') : ' · listed only') + '</span>';
+      const note = document.createElement('input');
+      note.type = 'text';
+      note.placeholder = 'Why it matters — one line';
+      note.value = d.note || '';
+      note.addEventListener('input', () => { d.note = note.value; save(); });
+      const del = document.createElement('button');
+      del.type = 'button'; del.className = 'doc-x'; del.setAttribute('aria-label', 'Remove ' + d.name);
+      del.textContent = '×';
+      del.addEventListener('click', () => { data.docs.splice(idx, 1); save(); renderStep(); });
+      row.append(meta, note, del);
+      list.appendChild(row);
+    });
+    if (rows.length) {
+      const foot = document.createElement('p');
+      foot.className = 'docs-foot';
+      foot.textContent = 'Files stay on this device. The brief lists them so the planning team knows what to ask you for — send the files on the way you normally would.';
+      list.appendChild(foot);
+    }
+    wrap.appendChild(list);
     return wrap;
   }
 

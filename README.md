@@ -1,7 +1,7 @@
 # LTP Brief
 
 An assisted intake for the long-term media planning process. The client completes a
-five-step brief; an AI co-pilot reviews inputs as they go — flagging contradictions with
+six-step brief; an AI co-pilot reviews inputs as they go — flagging contradictions with
 earlier answers and offering pre-fills — then synthesizes a clean brief to hand off.
 
 ## Flow
@@ -10,7 +10,13 @@ earlier answers and offering pre-fills — then synthesizes a clean brief to han
 2. **Growth Strategy** — path to growth + source-of-growth audience
 3. **Landscape** — competitors, category dynamics, white space
 4. **Full Funnel** — a KPI per funnel stage + cultural territories
-5. **Existing Assets** — what's available or in production, and when it's ready
+5. **Platform, Positioning and Creative** — the idea the brand stands on, how it's positioned, and the creative that carries it — what's available or in production, and when it's ready
+6. **Other Research/Input** — internal research and documents the planning team should read alongside the brief
+
+Documents added on **Other Research/Input** stay on the sender's device — there is nowhere
+to put them — so the brief carries the manifest (name + why it matters) for the planning
+team to request. Text-shaped files (csv, txt, md, json) also have their contents read, up
+to 12k characters each and 90k in total, so the co-pilot can reason against them.
 
 Answers autosave to the browser. The final step generates an exportable brief
 (copy / download Markdown; one-click Google Doc export planned).

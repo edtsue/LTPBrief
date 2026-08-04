@@ -60,10 +60,25 @@ const Brief = (() => {
     kpis.forEach(([id, lbl]) => { if (val(data, id)) L.push(`- **${lbl}:** ${val(data, id)}`); });
     L.push('');
 
-    L.push('## Existing Assets', '');
+    L.push('## Platform, Positioning and Creative', '');
+    ['platform', 'positioning'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
+    L.push('');
+    L.push('### Creative assets', '');
     const a = assetLines(data);
     L.push(...(a.length ? a : ['- _None listed yet._']));
     L.push('');
+
+    // The files themselves stay on the sender's device, so the brief carries
+    // the manifest — what exists, and why it matters — for the planning team
+    // to ask for.
+    const docs = Array.isArray(data.docs) ? data.docs.filter(d => d && d.name) : [];
+    if (docs.length || val(data, 'researchNotes')) {
+      L.push('## Other Research & Input', '');
+      docs.forEach(d => L.push(`- **${d.name}**${d.note ? ` — ${d.note}` : ''}`));
+      if (docs.length) L.push('', '_Files sit with the person who filled this in — request them directly._', '');
+      if (val(data, 'researchNotes')) L.push(`- **${F['researchNotes']}:** ${val(data, 'researchNotes')}`);
+      L.push('');
+    }
 
     return L.join('\n');
   }
