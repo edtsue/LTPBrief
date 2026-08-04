@@ -79,7 +79,7 @@ const SCHEMA = {
             {
               id: 'culturalTerritories', label: 'Cultural territories & community angles', type: 'textarea', full: true,
               placeholder: 'Ownable moments, communities, and spaces the brand has permission to play in',
-              link: { label: 'Open Tyrion — 2H US view', url: 'https://sites.google.com/mediafuturesgroup.com/tyrion/2h-us-view' }
+              link: { label: 'Open Tyrion', url: 'https://sites.google.com/mediafuturesgroup.com/tyrion/home' }
             }
           ]
         }
