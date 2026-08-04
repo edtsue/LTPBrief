@@ -321,6 +321,7 @@ async function overCap(ip) {
 }
 
 module.exports = async (req, res) => {
+  gate.noStore(res);
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   if (!API_KEY) { res.status(503).json({ error: 'Assistant not configured' }); return; }
   if (!allowedOrigin(req)) { res.status(403).json({ error: 'Not allowed from this origin' }); return; }

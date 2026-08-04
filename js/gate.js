@@ -29,8 +29,10 @@
   const show = () => { gate.hidden = false; document.body.classList.add('gated'); setTimeout(() => pw.focus(), 60); };
   const hide = () => { gate.hidden = true; document.body.classList.remove('gated'); unlocked(); };
 
-  // Ask first, so a remembered browser never sees the lock screen at all.
-  fetch('/api/gate')
+  /* Ask first, so a remembered browser never sees the lock screen at all.
+     `no-store` because the answer is about this cookie right now: cached, it
+     tells you what your login status used to be, which is worse than useless. */
+  fetch('/api/gate', { cache: 'no-store' })
     .then(r => r.json())
     .then(j => { if (j && j.gated && !j.open) show(); else unlocked(); })
     .catch(() => { /* no gate configured, or offline — the tool still works */ unlocked(); });

@@ -7,6 +7,8 @@
 const gate = require('./_gate');
 
 module.exports = async (req, res) => {
+  gate.noStore(res);
+
   if (req.method === 'GET') {
     res.status(200).json({ open: gate.passed(req), gated: gate.enabled(), days: gate.DAYS });
     return;

@@ -59,6 +59,19 @@ function validToken(token) {
   return crypto.timingSafeEqual(expected, got);
 }
 
+/* Never let an answer that depends on the cookie be stored by anything.
+   Say nothing and Vercel applies `public, max-age=0, must-revalidate`, which
+   is wrong twice over: `public` invites a shared cache to hand one visitor's
+   answer to the next, and Chrome's memory cache will re-serve `{open:false}`
+   within a session regardless of must-revalidate. That is what made the lock
+   screen reappear after a login that had genuinely succeeded — the cookie was
+   good, the browser just never asked again. Vary: Cookie is belt to that
+   brace, so any cache that ignores no-store still keys on the right thing. */
+function noStore(res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  res.setHeader('Vary', 'Cookie');
+}
+
 function readCookie(req, name) {
   const raw = req.headers.cookie || '';
   for (const part of raw.split(';')) {
@@ -86,4 +99,4 @@ function clearCookie(res) {
   res.setHeader('Set-Cookie', `${COOKIE}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax`);
 }
 
-module.exports = { COOKIE, DAYS, MAX_AGE, SESSION_AGE, enabled, issue, sameSecret, validToken, passed, setCookie, clearCookie, readCookie };
+module.exports = { COOKIE, DAYS, MAX_AGE, SESSION_AGE, enabled, issue, sameSecret, validToken, passed, setCookie, clearCookie, readCookie, noStore };
