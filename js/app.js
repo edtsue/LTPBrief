@@ -144,6 +144,17 @@
     });
     el.steps.appendChild(brief);
 
+    /* Set apart from the navigation by a gap, because it is not navigation —
+       it is the one control here that destroys work, and it should not sit
+       flush against the thing you click to read your brief. */
+    const nuke = document.createElement('button');
+    nuke.type = 'button';
+    nuke.className = 'nuke-pill';
+    nuke.innerHTML = '<span class="nuke-ico">&#9762;&#65039;</span> NUCLEAR DELETE';
+    nuke.setAttribute('data-tip', 'Erase every answer and start over — cannot be undone');
+    nuke.addEventListener('click', openNuke);
+    el.steps.appendChild(nuke);
+
     const pct = Math.round((completedCount() / steps.length) * 100);
     el.progLabel.textContent = `Step ${current + 1} of ${steps.length} · ${pct}% complete`;
     el.progFill.style.width = Math.max(pct, (current + 1) / steps.length * 100 * 0) + '%';
@@ -1303,6 +1314,68 @@
     return api;
   }
   function modalClose(m) { m.card.querySelectorAll('.rf-close').forEach(b => b.addEventListener('click', () => m.close())); }
+
+  /* ---------- nuclear delete ----------
+     The one irreversible action in the tool. Undo cannot help here: it holds a
+     single snapshot in memory, and this clears the storage that snapshot would
+     be written back to. So the guard is a typed phrase rather than a confirm()
+     — long enough that it cannot be dismissed by reflex, and impossible to hit
+     by mistake. The button stays disabled until the phrase matches. */
+  const NUKE_PHRASE = 'yes, i want to reset everything';
+  let nukeModal = null;
+  function openNuke() {
+    if (!nukeModal) nukeModal = makeModal();
+    nukeModal.card.className = 'refine-card nuke-card';
+    nukeModal.card.innerHTML =
+      '<div class="refine-hd nuke-hd"><span class="nuke-ico">&#9762;&#65039;</span> Nuclear delete' +
+        '<button class="rf-close" type="button">&times;</button></div>' +
+      '<p class="nuke-warn"><b>This cannot be undone.</b> It erases every answer in every step, ' +
+        'the funnel you have built, your uploaded document list and the brief itself — everything ' +
+        'stored for this tool in this browser. There is no copy on a server to restore from, and ' +
+        'Undo will not bring it back.</p>' +
+      '<p class="nuke-save">If you might want any of it later, close this and use <b>Save to file</b> first.</p>' +
+      '<label class="nuke-label">To confirm, type <code>' + NUKE_PHRASE + '</code></label>' +
+      '<input class="nuke-input" type="text" autocomplete="off" autocapitalize="none" ' +
+        'spellcheck="false" aria-label="Type the confirmation phrase" />' +
+      '<div class="nuke-actions">' +
+        '<button class="btn nuke-cancel" type="button">Cancel</button>' +
+        '<button class="btn nuke-go" type="button" disabled>Delete everything</button>' +
+      '</div>';
+    const input = nukeModal.card.querySelector('.nuke-input');
+    const go = nukeModal.card.querySelector('.nuke-go');
+    /* Ends are trimmed because trailing whitespace is invisible and refusing it
+       reads as a broken field; everything else must match, case included. */
+    const matches = () => input.value.trim() === NUKE_PHRASE;
+    const sync = () => {
+      go.disabled = !matches();
+      input.classList.toggle('ok', matches());
+    };
+    input.addEventListener('input', sync);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter' && matches()) detonate(); });
+    go.addEventListener('click', () => { if (matches()) detonate(); });
+    nukeModal.card.querySelector('.nuke-cancel').addEventListener('click', () => nukeModal.close());
+    nukeModal.card.querySelector('.rf-close').addEventListener('click', () => nukeModal.close());
+    nukeModal.open();
+    setTimeout(() => input.focus(), 60);
+  }
+  function detonate() {
+    data = {}; editedBrief = null; undoState = null;
+    // assistCache is a const map — clear its keys, or every step keeps the
+    // review it had before the brief was erased
+    Object.keys(assistCache).forEach(k => { delete assistCache[k]; });
+    try {
+      localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(BRIEF_KEY);
+    } catch {}
+    current = 0;
+    nukeModal.close();
+    showForm();
+    mapFunnelFields();     // the custom funnel went with the data; stages are the schema's again
+    renderStep();
+    if (el.coAnswer) el.coAnswer.hidden = true;
+    renderAssist(null);
+    toast('Everything deleted — this is a blank brief');
+  }
 
   /* ---------- audience builder ---------- */
   let audModal = null;
