@@ -714,11 +714,87 @@
     const commitStages = next => { data.funnelStages = next.map(s => Object.assign({}, s)); };
 
     const stages = liveStages();
+    const tierEls = [];
+
+    function moveStage(from, to) {
+      if (from === to || to < 0 || to >= stages.length) return;
+      pushUndo();
+      const next = liveStages().map(s => Object.assign({}, s));
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      commitStages(next);
+      redraw();
+      toastAction('Stage moved', 'Undo', doUndo);
+    }
+
+    /* Reordering is what the funnel shape is for, so the shape has to answer
+       while you drag rather than after you drop: the lifted tier takes the
+       width of the slot it is currently over, and the tiers it displaces slide
+       out of the way. Pointer events rather than HTML5 drag-and-drop, because
+       drag-and-drop does not exist on touch. */
+    function startDrag(ev, from) {
+      if (ev.button != null && ev.button !== 0) return;
+      if (tierEls.length < 2) return;
+      ev.preventDefault();
+      const n = tierEls.length;
+      const rects = tierEls.map(el => el.getBoundingClientRect());
+      const gap = n > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 0;
+      const stepPx = rects[0].height + gap;
+      const startY = ev.clientY;
+      const dragEl = tierEls[from];
+      let to = from;
+      dragEl.classList.add('dragging');
+      document.body.classList.add('dragging-stage');
+
+      const onMove = e => {
+        const dy = e.clientY - startY;
+        dragEl.style.transform = 'translateY(' + dy + 'px)';
+        const target = Math.max(0, Math.min(n - 1, from + Math.round(dy / stepPx)));
+        if (target === to) return;
+        to = target;
+        dragEl.style.setProperty('--w', tierWidth(to, n) + '%');
+        tierEls.forEach((el, j) => {
+          if (j === from) return;
+          let shift = 0;
+          if (from < to && j > from && j <= to) shift = -stepPx;
+          else if (from > to && j >= to && j < from) shift = stepPx;
+          el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
+        });
+      };
+      const onUp = () => {
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        document.removeEventListener('pointercancel', onUp);
+        document.body.classList.remove('dragging-stage');
+        dragEl.classList.remove('dragging');
+        tierEls.forEach(el => { el.style.transform = ''; });
+        if (to !== from) moveStage(from, to);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+      document.addEventListener('pointercancel', onUp);
+    }
+
     stages.forEach((st, i) => {
       const tier = document.createElement('div');
       tier.className = 'ftier';
       tier.style.setProperty('--w', tierWidth(i, stages.length) + '%');
       tier.style.setProperty('--c', st.color || STAGE_COLORS[i % STAGE_COLORS.length]);
+      tierEls.push(tier);
+
+      const grip = document.createElement('button');
+      grip.type = 'button'; grip.className = 'fstage-grip';
+      grip.innerHTML = '&#8942;&#8942;';
+      grip.disabled = stages.length < 2;
+      grip.setAttribute('aria-label', 'Reorder ' + st.label);
+      grip.setAttribute('data-tip', 'Drag to reorder — the funnel resizes to match');
+      grip.addEventListener('pointerdown', e => startDrag(e, i));
+      // the same move without a pointer, for keyboards and screen readers
+      grip.addEventListener('keydown', e => {
+        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+        e.preventDefault();
+        moveStage(i, i + (e.key === 'ArrowUp' ? -1 : 1));
+      });
 
       /* The stage name is the thing being customised, so it is an input, not a
          label. It looks like text until you click it. */
@@ -766,7 +842,7 @@
         toastAction('Stage removed', 'Undo', doUndo);
       });
 
-      tier.append(lab, wrapClear(input, false), rm);
+      tier.append(grip, lab, wrapClear(input, false), rm);
       funnel.appendChild(tier);
     });
     wrap.appendChild(funnel);

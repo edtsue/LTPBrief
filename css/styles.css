@@ -236,15 +236,30 @@ body{
 .ftier .fstage-edit:hover{background:rgba(255,255,255,.18)}
 .ftier .fstage-edit:focus{background:rgba(255,255,255,.95);color:#202124;text-shadow:none;
   box-shadow:0 0 0 3px rgba(255,255,255,.6)}
-.fstage-rm{position:absolute;top:9px;right:11px;width:24px;height:24px;padding:0;border:none;border-radius:50%;
-  background:rgba(255,255,255,.24);color:#fff;font-size:15px;line-height:1;cursor:pointer;
-  display:grid;place-items:center;opacity:0;transition:.15s}
-.ftier:hover .fstage-rm,.ftier:focus-within .fstage-rm{opacity:1}
-.fstage-rm:hover{background:rgba(255,255,255,.45)}
-.fstage-rm:disabled{display:none}
+.fstage-rm,.fstage-grip{position:absolute;top:9px;width:24px;height:24px;padding:0;border:none;
+  background:rgba(255,255,255,.24);color:#fff;line-height:1;cursor:pointer;
+  display:grid;place-items:center;opacity:0;transition:opacity .15s,background .15s}
+.fstage-rm{right:11px;border-radius:50%;font-size:15px}
+/* touch-action:none or the browser claims the gesture as a scroll before the
+   drag ever starts */
+.fstage-grip{left:11px;border-radius:7px;font-size:11px;letter-spacing:-2px;cursor:grab;touch-action:none}
+.ftier:hover .fstage-rm,.ftier:focus-within .fstage-rm,
+.ftier:hover .fstage-grip,.ftier:focus-within .fstage-grip{opacity:1}
+.fstage-rm:hover,.fstage-grip:hover{background:rgba(255,255,255,.45)}
+.fstage-rm:disabled,.fstage-grip:disabled{display:none}
+.fstage-grip:active{cursor:grabbing}
 /* Nothing hovers on a touch screen, so a control that appears on hover is a
    control that does not exist there. */
-@media (hover:none){.fstage-rm{opacity:1}}
+@media (hover:none){.fstage-rm,.fstage-grip{opacity:1}}
+
+/* The lifted tier must not animate its own transform — it follows the pointer
+   frame by frame — while the tiers it displaces should slide, which is what
+   makes the reorder legible. Width keeps its transition either way, so the
+   funnel visibly re-tapers as the tier crosses into a new slot. */
+.ftier.dragging{transition:width .18s;z-index:5;cursor:grabbing;
+  box-shadow:0 12px 30px color-mix(in srgb,var(--c) 55%,rgba(8,11,21,.4))}
+.ftier.dragging .fstage-grip{opacity:1;cursor:grabbing}
+body.dragging-stage{user-select:none;-webkit-user-select:none}
 .fstage-add{margin:12px auto 0;display:block;background:none;border:1px dashed var(--fieldline);
   color:var(--ink2);font-family:inherit;font-size:13px;font-weight:600;border-radius:999px;
   padding:9px 18px;cursor:pointer;transition:.15s}

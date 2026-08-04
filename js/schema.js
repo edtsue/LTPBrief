@@ -115,7 +115,7 @@ const SCHEMA = {
           fields: [
             {
               id: 'funnelKpis', type: 'funnel',
-              help: 'One measurable KPI per stage. The five stages are a starting point — rename them, remove one, or add your own so the funnel matches how this business actually converts.',
+              help: 'One measurable KPI per stage. The five stages are a starting point — rename them, reorder them by dragging the grip, remove one, or add your own so the funnel matches how this business actually converts. The shape re-tapers itself.',
               stages: [
                 { id: 'kpiAwareness', label: 'Awareness', color: '#EA4335', placeholder: 'e.g. Ad recall lift' },
                 { id: 'kpiConsideration', label: 'Consideration', color: '#34A853', placeholder: 'e.g. Consideration +6pt' },

@@ -77,6 +77,24 @@ test('a removed stage leaves no trace in the brief', () => {
   assert.doesNotMatch(md, /orphaned value/, 'a stage no longer in the funnel must not be exported');
 });
 
+test('reordering stages reorders the brief, since the funnel is an argument in order', () => {
+  const { Brief } = load();
+  const md = Brief.toMarkdown({
+    funnelStages: [
+      { id: 'kpiLoyalty', label: 'Loyalty' },
+      { id: 'kpiAwareness', label: 'Awareness' },
+      { id: 'kpiIntent', label: 'Intent' }
+    ],
+    kpiAwareness: 'Ad recall +4pt',
+    kpiIntent: 'App-store visits',
+    kpiLoyalty: 'D30 retention'
+  });
+  const order = ['Loyalty', 'Awareness', 'Intent'].map(l => md.indexOf(`**${l}:**`));
+  assert.ok(order.every(i => i >= 0), 'every stage must appear');
+  assert.deepEqual(order.slice().sort((a, b) => a - b), order,
+    'the brief must list stages in the funnel order, not the schema order');
+});
+
 test('every form field offers a description', () => {
   const { SCHEMA } = load();
   const missing = [];
