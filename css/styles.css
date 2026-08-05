@@ -477,6 +477,34 @@ body.dragging-stage{user-select:none;-webkit-user-select:none}
 .rf-chip{font:inherit;font-size:13px;font-weight:600;padding:9px 15px;border-radius:999px;border:1px solid var(--fieldline);background:var(--field);color:var(--ink);cursor:pointer;transition:.15s}
 .rf-chip:hover{border-color:var(--accent);color:var(--accentInk);transform:translateY(-1px)}
 .rf-custom{width:100%;font:inherit;font-size:13.5px;color:var(--ink);background:var(--field);border:1px solid var(--fieldline);border-radius:12px;padding:10px 12px;resize:vertical}
+
+/* review before commit — the rewrite beside the words it would replace */
+.refine-card.reviewing{width:min(940px,95vw)}
+.rf-prev-note{font-size:12px;font-weight:600;color:var(--fyiInk);background:var(--fyiBg);
+  border:1px solid var(--fyiLine);border-radius:9px;padding:7px 11px;margin:12px 0}
+.rf-diff{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.rf-col{min-width:0;display:flex;flex-direction:column}
+.rf-col h4{margin:0 0 6px;font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ink3)}
+.rf-body{flex:1;min-width:0;max-height:46vh;overflow-y:auto;font-size:13px;line-height:1.6;
+  color:var(--ink);background:var(--field);border:1px solid var(--fieldline);
+  border-radius:12px;padding:12px 14px}
+.rf-body h2,.rf-body h3{font-size:14px;margin:0 0 8px}
+.rf-body p,.rf-body li{font-size:13px;line-height:1.6}
+.rf-body > *:last-child{margin-bottom:0}
+.rf-col:last-child .rf-body{border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+  background:var(--accentBg)}
+.rf-prev-foot{display:flex;align-items:center;justify-content:flex-end;gap:9px;margin-top:14px}
+.rf-discard,.rf-again{background:none;border:1px solid var(--fieldline);font-family:inherit;
+  font-size:13px;font-weight:600;color:var(--ink2);border-radius:999px;padding:9px 16px;cursor:pointer;transition:.15s}
+.rf-discard:hover,.rf-again:hover{border-color:var(--accent);color:var(--accentInk)}
+.rf-discard{margin-right:auto}
+
+/* the whole-brief draft, same contract */
+.draft-card{width:min(860px,95vw);display:flex;flex-direction:column;max-height:88vh}
+.draft-body{flex:1;overflow-y:auto;max-height:62vh;background:var(--field);
+  border:1px solid var(--fieldline);border-radius:14px;padding:20px 22px}
+@media(max-width:720px){.rf-diff{grid-template-columns:1fr}.rf-body{max-height:32vh}}
 .rf-custom:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
 .rf-foot{display:flex;justify-content:flex-end;margin-top:12px}
 .rf-loading{display:flex;align-items:center;gap:8px;color:var(--ink3);font-size:13px;margin-top:12px}

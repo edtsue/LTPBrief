@@ -1174,6 +1174,7 @@
   ];
   let refineTarget = null;
   let refineOverlay = null;
+  let pendingRefine = null;   // a rewrite that has been read but not accepted
 
   function decorateSections() {
     el.briefDoc.querySelectorAll('h2').forEach(h2 => {
@@ -1217,6 +1218,21 @@
       '<textarea class="rf-custom" placeholder="Or type your own instruction…" rows="2"></textarea>' +
       '<div class="rf-foot"><button class="btn primary rf-apply" type="button">Apply</button></div>' +
       '<div class="rf-loading" hidden><svg class="gstar"><use href="#star"/></svg> Refining…</div>' +
+      /* Nothing reaches the brief until this is committed. The rewrite is a
+         proposal you read next to what it would replace — a model that
+         rewrites your words should have to show them to you first. */
+      '<div class="rf-preview" hidden>' +
+        '<div class="rf-prev-note">Nothing has changed in your brief yet.</div>' +
+        '<div class="rf-diff">' +
+          '<div class="rf-col"><h4>Current</h4><div class="rf-body rf-before"></div></div>' +
+          '<div class="rf-col"><h4>Proposed</h4><div class="rf-body rf-after"></div></div>' +
+        '</div>' +
+        '<div class="rf-prev-foot">' +
+          '<button class="rf-discard" type="button">Discard</button>' +
+          '<button class="rf-again" type="button">Try another instruction</button>' +
+          '<button class="btn primary rf-commit" type="button">Commit to brief</button>' +
+        '</div>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(ov);
     const actions = ov.querySelector('.rf-actions');
@@ -1232,17 +1248,39 @@
       const c = ov.querySelector('.rf-custom').value.trim();
       if (c) doRefine(c);
     });
+    ov.querySelector('.rf-commit').addEventListener('click', commitRefine);
+    ov.querySelector('.rf-discard').addEventListener('click', () => { pendingRefine = null; closeRefine(); });
+    ov.querySelector('.rf-again').addEventListener('click', () => { pendingRefine = null; showRefineControls(true); });
     return ov;
+  }
+  /* Swap between asking for a rewrite and reading the one that came back —
+     they are two steps in one card, and showing both at once invites you to
+     fire off another instruction while a proposal is still sitting there. */
+  function showRefineControls(on) {
+    const ov = refineOverlay;
+    if (!ov) return;
+    ['.rf-actions', '.rf-custom', '.rf-foot'].forEach(sel => { ov.querySelector(sel).hidden = !on; });
+    ov.querySelector('.rf-preview').hidden = on;
+    ov.querySelector('.refine-card').classList.toggle('reviewing', !on);
   }
   function openRefine(h2) {
     refineTarget = h2;
+    pendingRefine = null;
     if (!refineOverlay) refineOverlay = buildOverlay();
     refineOverlay.querySelector('.rf-name').textContent = headingText(h2);
     refineOverlay.querySelector('.rf-custom').value = '';
     refineOverlay.querySelector('.rf-loading').hidden = true;
+    showRefineControls(true);
     refineOverlay.hidden = false;
   }
-  function closeRefine() { if (refineOverlay) refineOverlay.hidden = true; refineTarget = null; }
+  /* Closing always abandons an uncommitted proposal. The alternative — keeping
+     it around to apply later — means a rewrite could land on a section long
+     after you stopped looking at it. */
+  function closeRefine() {
+    if (refineOverlay) { refineOverlay.hidden = true; showRefineControls(true); }
+    refineTarget = null;
+    pendingRefine = null;
+  }
   async function doRefine(instruction) {
     if (!refineTarget) return;
     const h2 = refineTarget;
@@ -1253,49 +1291,98 @@
     try {
       const res = await Gemini.refine(heading, content, instruction);
       let md = (res.markdown || '').trim();
-      if (!md) { loading.hidden = true; toast('No change returned'); return; }
+      loading.hidden = true;
+      if (!md) { toast('No change returned'); return; }
       if (!/^#{1,3}\s/.test(md)) md = `## ${heading}\n\n${md}`;
-      pushUndo();
-      const tmp = document.createElement('div');
-      tmp.innerHTML = Brief.toHtml(md);
-      const oldNodes = sectionNodes(h2);
-      const parent = h2.parentNode;
-      Array.from(tmp.childNodes).forEach(nn => parent.insertBefore(nn, h2));
-      oldNodes.forEach(n => n.remove());
-      decorateSections();
-      saveBrief();
-      closeRefine();
-      toastAction('Section refined', 'Undo', doUndo);
+
+      /* Hold it. The section is not touched until Commit — what happens here
+         is that you get to read the rewrite beside the words it would replace. */
+      pendingRefine = { h2, md, heading };
+      const before = refineOverlay.querySelector('.rf-before');
+      const after = refineOverlay.querySelector('.rf-after');
+      before.innerHTML = '';
+      sectionNodes(h2).forEach(n => before.appendChild(n.cloneNode(true)));
+      before.querySelectorAll('.sec-ai').forEach(b => b.remove());   // the Refine button itself is not content
+      after.innerHTML = Brief.toHtml(md);
+      showRefineControls(false);
     } catch (err) {
       loading.hidden = true;
       toast(err && err.status === 503 ? 'Assist is offline — add the Gemini key.' : 'Could not refine just now.');
     }
   }
-
-  async function generate() {
-    /* Drafting replaces the entire brief, including any editing already done
-       inside it. Snapshot before the request rather than after: the previous
-       text leaves the DOM the moment the loading state paints, and by the time
-       saveBrief() runs there is nothing left to capture. */
+  function commitRefine() {
+    if (!pendingRefine) return;
+    const { h2, md } = pendingRefine;
+    // the heading may have been re-rendered since; bail rather than write blind
+    if (!h2 || !h2.isConnected) { pendingRefine = null; closeRefine(); toast('That section is no longer open'); return; }
     pushUndo();
-    const replaced = !!editedBrief;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = Brief.toHtml(md);
+    const oldNodes = sectionNodes(h2);
+    const parent = h2.parentNode;
+    Array.from(tmp.childNodes).forEach(nn => parent.insertBefore(nn, h2));
+    oldNodes.forEach(n => n.remove());
+    decorateSections();
+    saveBrief();
+    pendingRefine = null;
+    closeRefine();
+    toastAction('Section committed', 'Undo', doUndo);
+  }
+
+  /* Drafting rewrites the whole brief, so it proposes rather than replaces:
+     the draft is shown in full, and the brief on the page is left alone until
+     Commit. Nothing is lost by reading it first, and a whole brief silently
+     overwritten is the most expensive mistake this tool can make. */
+  async function generate() {
     el.genBtn.disabled = true;
-    el.briefDoc.innerHTML = `<div class="brief-loading"><svg class="gstar"><use href="#star"/></svg> Drafting your brief…</div>`;
-    let offline = false;
+    const prev = el.genBtn.innerHTML;   // innerHTML, not text — the button holds an icon
+    el.genBtn.innerHTML = '<svg class="gstar sp"><use href="#starw"/></svg> Drafting…';
+    let md = null, offline = false;
     try {
       const res = await Gemini.synthesize(data);
-      el.briefDoc.innerHTML = Brief.toHtml(res.markdown || Brief.toMarkdown(data));
+      md = res.markdown || Brief.toMarkdown(data);
     } catch {
-      el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
+      md = Brief.toMarkdown(data);
       offline = true;
-      toast('Draft assist is offline — showing the brief from your inputs.');
     }
+    el.genBtn.disabled = false;
+    el.genBtn.innerHTML = prev;
+    if (offline) toast('Draft assist is offline — showing the brief from your inputs.');
+    openDraftReview(md);
+  }
+  let draftModal = null, pendingDraft = null;
+  function openDraftReview(md) {
+    pendingDraft = md;
+    if (!draftModal) draftModal = makeModal();
+    draftModal.card.className = 'refine-card draft-card';
+    draftModal.card.innerHTML =
+      '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Drafted brief' +
+        '<button class="rf-close" type="button" aria-label="Close">&times;</button></div>' +
+      '<div class="rf-prev-note">A proposed rewrite of the whole brief. Nothing has changed yet.</div>' +
+      '<div class="draft-body brief-doc"></div>' +
+      '<div class="rf-prev-foot">' +
+        '<button class="rf-discard" type="button">Discard</button>' +
+        '<button class="btn primary rf-commit" type="button">Commit to brief</button>' +
+      '</div>';
+    draftModal.card.querySelector('.draft-body').innerHTML = Brief.toHtml(md);
+    draftModal.card.querySelector('.rf-close').addEventListener('click', () => draftModal.close());
+    draftModal.card.querySelector('.rf-discard').addEventListener('click', () => draftModal.close());
+    draftModal.card.querySelector('.rf-commit').addEventListener('click', commitDraft);
+    draftModal.onClose = () => { pendingDraft = null; };
+    draftModal.open();
+  }
+  function commitDraft() {
+    if (pendingDraft == null) return;
+    const replaced = !!editedBrief;
+    pushUndo();                       // capture before the brief on the page is replaced
+    el.briefDoc.innerHTML = Brief.toHtml(pendingDraft);
     injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
-    el.genBtn.disabled = false;
-    // only worth offering when there was something to lose
-    if (replaced && !offline) toastAction('Brief drafted — your earlier version was replaced', 'Undo', doUndo);
+    pendingDraft = null;
+    draftModal.close();
+    if (replaced) toastAction('Brief drafted — your earlier version was replaced', 'Undo', doUndo);
+    else toastAction('Brief drafted', 'Undo', doUndo);
   }
 
   /* ---------- reusable modal ---------- */
