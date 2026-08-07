@@ -769,7 +769,11 @@ body.dragging-stage{user-select:none;-webkit-user-select:none}
   padding:34px 30px 26px;border-radius:24px;text-align:center;
   background:var(--docpanel);border:1px solid var(--fieldline);
   backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);box-shadow:var(--shadow-lg)}
-.gate-star{width:34px;height:34px;align-self:center}
+/* This step's own mark from the process map, not the house star. Every module
+   in the family asks for a password on the same white card, so a shared logo
+   there says only "one of ours" at the moment you need to know which one. */
+.gate-mark{width:46px;height:46px;align-self:center;border-radius:13px;display:block;
+  box-shadow:0 2px 5px rgba(20,22,31,.13),0 10px 24px rgba(20,22,31,.12)}
 .gate-card h1{margin:2px 0 0;font-size:21px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
 .gate-card p{margin:0 0 6px;font-size:13.5px;line-height:1.55;color:var(--ink3)}
 .gate-card input[type="password"]{font-family:inherit;font-size:15px;text-align:center;padding:13px 16px;
