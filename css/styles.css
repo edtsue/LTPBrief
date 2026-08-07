@@ -141,19 +141,17 @@ body{
 .modhome:hover{filter:brightness(1.12)}
 .modsep{width:1px;height:18px;background:var(--line2);flex:none}
 
-.modtile{flex:none;width:24px;height:24px;border-radius:8px;display:grid;place-items:center;
-  font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;text-decoration:none;
-  background:var(--tile,var(--ink3))}
-/* The step colours the process map uses, so the two read as one system. */
-.modtile.s-brief{--tile:#DC4B3F}
-.modtile.s-strategy{--tile:#3B7DDD}
-.modtile.s-planning{--tile:#2E9E52}
-.modtile:hover{filter:brightness(1.12)}
-/* Where you already are: outlined rather than filled, and not a link. */
-.modtile.on{background:none;color:var(--tile);box-shadow:inset 0 0 0 2px var(--tile);cursor:default}
+/* The icon is the tile — it brings its own field, shadow and colour from the
+   process map, so nothing here paints a background. */
+.modtile{flex:none;width:26px;height:26px;display:block;border-radius:8px;text-decoration:none}
+.modtile svg{width:100%;height:100%;display:block;border-radius:8px}
+.modtile:hover{filter:brightness(1.08)}
+/* Where you already are: ringed rather than recoloured, so the icon stays the icon. */
+.modtile.on{box-shadow:0 0 0 2px var(--accent);cursor:default}
 /* Declared, not built. Greyed rather than hidden — a module missing from the
    row reads as a module missing from the process. */
-.modtile.soon{background:none;color:var(--ink3);box-shadow:inset 0 0 0 1px var(--line2);cursor:default}
+.modtile.soon{filter:grayscale(1);opacity:.45;cursor:default}
+.modtile.soon:hover{filter:grayscale(1)}
 .modtile:focus-visible,.modhome:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mainhead{padding-right:132px}
 .form-view,.brief-view{padding:28px 36px;display:flex;flex-direction:column;align-items:center;height:100%;overflow:hidden}
