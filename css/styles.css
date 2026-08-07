@@ -125,7 +125,18 @@ body{
 .save.saving{color:var(--ink3)}
 
 /* ---------- center ---------- */
-.main{overflow:hidden;display:flex;flex-direction:column}
+.main{position:relative;overflow:hidden;display:flex;flex-direction:column}
+
+/* Back to the process map. Pinned to the top right of the working column, and
+   the views below carry padding for it so a long step title never runs under. */
+.oshome{position:absolute;top:14px;right:18px;z-index:20;display:flex;align-items:center;gap:8px;
+  text-decoration:none;color:var(--ink3);border:1px solid var(--line2);border-radius:999px;
+  padding:5px 12px 5px 6px;background:var(--panel);font-family:var(--mono);font-size:9px;
+  letter-spacing:.12em;text-transform:uppercase;font-weight:600;white-space:nowrap}
+.oshome svg{width:22px;height:22px;flex:none;border-radius:7px}
+.oshome:hover{color:var(--ink);border-color:var(--fieldline)}
+.oshome:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mainhead{padding-right:132px}
 .form-view,.brief-view{padding:28px 36px;display:flex;flex-direction:column;align-items:center;height:100%;overflow:hidden}
 .form-view[hidden],.brief-view[hidden]{display:none!important}
 /* keep working content at a comfortable width, no ultrawide dead space */
