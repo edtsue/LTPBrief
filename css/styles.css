@@ -127,15 +127,34 @@ body{
 /* ---------- center ---------- */
 .main{position:relative;overflow:hidden;display:flex;flex-direction:column}
 
-/* Back to the process map. Pinned to the top right of the working column, and
-   the views below carry padding for it so a long step title never runs under. */
-.oshome{position:absolute;top:14px;right:18px;z-index:20;display:flex;align-items:center;gap:8px;
-  text-decoration:none;color:var(--ink3);border:1px solid var(--line2);border-radius:999px;
-  padding:5px 12px 5px 6px;background:var(--panel);font-family:var(--mono);font-size:9px;
-  letter-spacing:.12em;text-transform:uppercase;font-weight:600;white-space:nowrap}
-.oshome svg{width:22px;height:22px;flex:none;border-radius:7px}
-.oshome:hover{color:var(--ink);border-color:var(--fieldline)}
-.oshome:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* The planning modules, and the map they hang off. Pinned to the top right of
+   the working column; the step heading carries padding for it so a long title
+   never runs under.
+
+   The map opens in this tab because it is a step back. A module opens in a new
+   one because it is a step sideways — you are mid-brief, and losing it to a
+   navigation click is the whole thing you were protecting. */
+.modnav{position:absolute;top:14px;right:18px;z-index:20;display:flex;align-items:center;gap:6px;
+  padding:4px 6px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
+.modhome{display:flex;flex:none;border-radius:8px}
+.modhome svg{width:24px;height:24px;display:block;border-radius:8px}
+.modhome:hover{filter:brightness(1.12)}
+.modsep{width:1px;height:18px;background:var(--line2);flex:none}
+
+.modtile{flex:none;width:24px;height:24px;border-radius:8px;display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;color:#fff;text-decoration:none;
+  background:var(--tile,var(--ink3))}
+/* The step colours the process map uses, so the two read as one system. */
+.modtile.s-brief{--tile:#DC4B3F}
+.modtile.s-strategy{--tile:#3B7DDD}
+.modtile.s-planning{--tile:#2E9E52}
+.modtile:hover{filter:brightness(1.12)}
+/* Where you already are: outlined rather than filled, and not a link. */
+.modtile.on{background:none;color:var(--tile);box-shadow:inset 0 0 0 2px var(--tile);cursor:default}
+/* Declared, not built. Greyed rather than hidden — a module missing from the
+   row reads as a module missing from the process. */
+.modtile.soon{background:none;color:var(--ink3);box-shadow:inset 0 0 0 1px var(--line2);cursor:default}
+.modtile:focus-visible,.modhome:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .mainhead{padding-right:132px}
 .form-view,.brief-view{padding:28px 36px;display:flex;flex-direction:column;align-items:center;height:100%;overflow:hidden}
 .form-view[hidden],.brief-view[hidden]{display:none!important}
