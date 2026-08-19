@@ -72,3 +72,21 @@ test('the favicon is the same colour as the icon it copies', () => {
   assert.ok(icon[0].toUpperCase().includes('%23' + colour[1].slice(1).toUpperCase()),
     `the tab draws a different tile from the header (${colour[1]})`);
 });
+
+/* A field type with no branch in the renderer does not error — it falls through
+   to a plain text input. So a `budget` that lost its slider, or a `links` that
+   lost its rows, would render as a single empty box and save a string, and the
+   only symptom is a control that looks wrong to somebody who knew what it
+   should be. */
+test('every field type the schema uses has a renderer', () => {
+  const vm = require('node:vm');
+  const ctx = vm.createContext({});
+  vm.runInContext(fs.readFileSync(path.join(root, 'js/schema.js'), 'utf8') +
+    '\n;globalThis.SCHEMA = SCHEMA;', ctx);
+
+  const PLAIN = new Set(['text', 'textarea']);   // the fall-through, deliberately
+  const used = new Set(ctx.SCHEMA.sections.flatMap(s => s.fields.map(f => f.type)));
+  const missing = [...used].filter(t =>
+    !PLAIN.has(t) && !new RegExp(`f\\.type === '${t}'`).test(app));
+  assert.deepEqual(missing, [], `these render as a plain text box: ${missing.join(', ')}`);
+});
