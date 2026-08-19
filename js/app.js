@@ -35,7 +35,6 @@
     briefView: document.getElementById('briefView'),
     briefDoc: document.getElementById('briefDoc'),
     genBtn: document.getElementById('genBtn'),
-    draftBtn: document.getElementById('draftBtn'),
     copyBtn: document.getElementById('copyBtn'),
     pdfBtn: document.getElementById('pdfBtn'),
     resetBriefBtn: document.getElementById('resetBriefBtn'),
@@ -913,9 +912,8 @@
   function renderCoPilot() {
     el.coBody.innerHTML =
       `<div class="co-empty">Fill the page in any order — it saves as you go.` +
-      ` <strong>Interview me</strong> asks for it a question at a time instead,` +
-      ` and <strong>Draft the brief</strong> turns your answers into the document` +
-      ` the planning team reads.</div>`;
+      ` <strong>Interview me</strong> asks for it a question at a time instead` +
+      ` of leaving you to face the whole page.</div>`;
   }
   /* ---------- brief view ---------- */
   function showForm() { el.formView.hidden = false; el.briefView.hidden = true; onBrief = false; renderRail(); }
@@ -1570,14 +1568,6 @@
   });
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
-  /* The same action from the co-pilot, which is where somebody looking for it
-     will be. It has to open the brief first — drafting proposes into a view
-     that is not on screen otherwise. */
-  el.draftBtn.addEventListener('click', () => {
-    if (completedCount() === 0) { toast('Answer something first — there is nothing to draft from yet.'); return; }
-    showBrief();
-    generate();
-  });
   el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });
   el.resetBriefBtn.addEventListener('click', () => {
     // discards every inline edit; capture before, not after
@@ -1665,7 +1655,7 @@
   const TOUR_STEPS = [
     { sel: '#fields', title: 'One page, eleven sections', body: 'Answer in any order — it saves as you go. Nothing here blocks you from finishing, so if you do not know something yet, leave it and say so.' },
     { sel: '#steps', title: 'Jump around', body: 'The rail lists every section and fills in its dot as you answer. Above it is the count of what the planning team will chase you for — click it to go straight there.' },
-    { sel: '.co-tools', title: 'Or let Gemini ask you', body: 'Facing a long page is not the only way to fill one in. Interview me asks for it a question at a time, and Draft the brief turns your answers into the document the planning team reads.' },
+    { sel: '.co-tools', title: 'Or let Gemini ask you', body: 'Facing a long page is not the only way to fill one in. Interview me asks for it a question at a time and writes the answers into the fields as you go.' },
     { sel: '.brief-nav', title: 'Finish here', body: 'Open the Full Brief to review, edit inline, refine any section, and export. Re-open this tour anytime from the “?” bottom-left.' }
   ];
   function startTour() {
