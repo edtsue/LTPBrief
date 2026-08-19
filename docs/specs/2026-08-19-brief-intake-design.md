@@ -89,7 +89,7 @@ Eleven sections, scrolled, in this order.
 | id | type | notes |
 | --- | --- | --- |
 | `objective` | textarea | What this plan has to achieve. |
-| `successMeasure` | textarea | How success will be judged, including measurement already bought — BLS, MMM, incrementality, a named tracker. |
+| `successMeasure` | textarea | How success will be judged, including measurement already bought — BLS, MMM, incrementality, a named tracker. Placeholder also prompts whether the methodology can isolate BR from DR: Strategy's own library flags that the two run in the same channels at the same time, so contamination in the MMM is a real risk and is cheapest to catch before the plan is built. |
 
 ### 3 · Full funnel
 
@@ -101,15 +101,39 @@ only the client knows and which constrains every allocation downstream.
 
 | id | type | notes |
 | --- | --- | --- |
-| `funnelSplit` | text | Any required balance between brand and DR, if one is set. Free text — `70/30`, `DR-led`, `no fixed split` are all valid answers. |
-| `brRequirements` | textarea | What brand has to deliver. |
-| `drRequirements` | textarea | What direct response has to deliver, including efficiency targets — CPA, ROAS, CPI. |
+| `brRequirements` | textarea | What Brand has to deliver. |
+| `drRequirements` | textarea | What Direct Response has to deliver, including efficiency targets — CPA, ROAS, CPI. |
+| `funnelSplit` | text | A split the client has **already been handed**, if there is one. `70/30`, `DR-led`, `none set` are all valid. |
 
-Labels read **Brand (BR)** and **Direct Response (DR)**.
+Labels read **Brand (BR)** and **Direct Response / Performance (DR)**, matching
+the vocabulary Strategy already uses in its "Making BR and DR work together"
+library (`ltpstrategy/js/schema.js`).
+
+`funnelSplit` is last, and worded as an inherited constraint rather than a
+question, on purpose. Strategy's own position is that brand and performance
+belong on one plan "with the split set by the funnel part rather than by team".
+A top-line ratio is the opposite of that — but clients genuinely do arrive
+holding one, handed down by finance or a global team, and a constraint the
+planning team discovers late is worse than one it can argue with early. So the
+field captures where the number came from, and Strategy has something to push
+against instead of a surprise.
 
 None of the three is on the chase list. A plan can legitimately be brand-only or
 DR-only, so a blank here is a real answer rather than an omission, and chasing
 it would push a client into inventing a requirement that does not exist.
+
+### What this section deliberately does not ask
+
+Strategy runs four fixed funnel parts — **Priming / Awareness**, **Trigger**,
+**Active / Consideration**, **Purchase** — fixed so that plans stay comparable,
+and named for the person rather than the buy (they replaced ATL / Mid Funnel /
+DR for exactly that reason).
+
+The Intake does **not** ask the client to answer anything per part. Four columns
+to fill is the KPI grid again wearing different labels, and it would hand
+Strategy four guesses to argue with. The four part names appear in this
+section's helper text only, so the client knows the shape their answers will be
+built into and arrives using the same words.
 
 ### 4 · Audience
 
@@ -276,7 +300,9 @@ Answers already in a browser include fields that will not exist. On load:
   five considered answers in a catch-all field would read as having lost them.
   They are not split across `brRequirements` and `drRequirements` by stage —
   guessing that awareness is brand and purchase is DR would put words in the
-  client's mouth.
+  client's mouth. The old five stages did not match Strategy's four parts
+  either (they had no Trigger; Strategy has no Intent or Loyalty), so there is
+  no clean mapping to be clever with even if it were wanted.
 - Everything else dropped — `growthDriver` and its other-ids, `commsStrategy`,
   `categoryDynamics`, `culturalTerritories`, `platform`, `positioning` — is
   parked into `researchNotes` under a **From your earlier draft** heading.
