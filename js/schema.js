@@ -20,29 +20,29 @@ const SCHEMA = {
   sections: [
     {
       id: 'plan',
-      title: 'The plan',
+      title: 'The Plan',
       sub: 'Which plan this is. These four are how the planning team files it, so they are the ones worth getting exactly right.',
       fields: [
         { id: '_dropzone', type: 'dropzone' },
-        { id: 'region', label: 'Region', type: 'select', chase: true, source: 'regions',
+        { id: 'region', label: 'Region', type: 'select', chase: true, chip: 'Region', source: 'regions',
           help: 'Sets the market list below.' },
-        { id: 'market', label: 'Market', type: 'select', chase: true, source: 'markets',
+        { id: 'market', label: 'Market', type: 'select', chase: true, chip: 'Market', source: 'markets',
           dependsOn: 'region', otherId: 'marketOther', otherPlaceholder: 'Which market?',
           help: 'If the plan is genuinely for more than one market, pick Other and name them.' },
-        { id: 'productArea', label: 'Product Area', type: 'select', chase: true, source: 'areas',
+        { id: 'productArea', label: 'Product Area', type: 'select', chase: true, chip: 'Product Area', source: 'areas',
           otherId: 'productAreaOther', otherPlaceholder: 'What is it called?',
           help: 'The product this plan is for, as the business names it rather than as the campaign does.' },
-        { id: 'cycle', label: 'Cycle', type: 'cycle', chase: true,
+        { id: 'cycle', label: 'Cycle', type: 'cycle', chase: true, chip: 'Cycle',
           help: 'The year this plan covers, and whether it is the full year or one half.' }
       ]
     },
 
     {
       id: 'ask',
-      title: 'The ask',
+      title: 'The Ask',
       sub: 'What the money is for.',
       fields: [
-        { id: 'objective', label: 'What this plan has to achieve', type: 'textarea', full: true, chase: true,
+        { id: 'objective', label: 'What this plan has to achieve', type: 'textarea', full: true, chase: true, chip: 'Objective',
           placeholder: 'The business outcome this plan is accountable for…',
           help: 'A budget, a date and a product area describe the job; this says what it is for. It is the most expensive blank on the page — without it the planning team starts from nothing.' },
         { id: 'successMeasure', label: 'How success will be judged', type: 'textarea', full: true,
@@ -53,7 +53,7 @@ const SCHEMA = {
 
     {
       id: 'funnel',
-      title: 'Full funnel',
+      title: 'Full Funnel',
       /* NOT THE KPI GRID AGAIN. That asked for a metric per stage, which is the
          answer Strategy produces. This asks what Brand and DR are each on the
          hook for — which only the client can set, and which every allocation
@@ -82,7 +82,7 @@ const SCHEMA = {
       title: 'Audience',
       sub: 'Who this plan is for.',
       fields: [
-        { id: 'targetAudience', label: 'Target audience', type: 'textarea', full: true, chase: true,
+        { id: 'targetAudience', label: 'Target audience', type: 'textarea', full: true, chase: true, chip: 'Target Audience',
           placeholder: 'Who the plan is for — and, if you know it, which of them growth actually comes from…',
           help: 'Go past the demographic. If there is a specific group growth has to come from, and a reason the brand has the right to win them, that is the part the planning team cannot infer.' }
       ]
@@ -93,10 +93,10 @@ const SCHEMA = {
       title: 'Money',
       sub: 'The envelope, what it covers, and what is already spoken for.',
       fields: [
-        { id: 'budget', label: 'Budget range', type: 'budget', chase: true,
+        { id: 'budget', label: 'Budget range', type: 'budget', chase: true, chip: 'Budget',
           help: 'A range is what the planning team expects at this stage. Drag the Low and High handles separately; if you know the exact number, drag both ends to it.' },
         { id: 'budgetScope', label: 'What that number covers', type: 'pills', full: true,
-          optgroups: [ { options: ['Working media', 'Production', 'Agency fees'] } ],
+          optgroups: [ { options: ['Working Media', 'Production', 'Agency Fees'] } ],
           help: 'Pick everything the number includes. A budget read as working media when it was not is the error that shows up as an overspend.' },
         { id: 'committed', label: 'What is already committed against it', type: 'textarea', full: true,
           placeholder: 'Upfronts, sponsorships, signed always-on, anything already contracted…',
@@ -109,10 +109,10 @@ const SCHEMA = {
       title: 'Timing',
       sub: 'What the plan has to land around, and when you need it.',
       fields: [
-        { id: 'launchDates', label: 'Launches and external moments', type: 'textarea', full: true, chase: true,
+        { id: 'launchDates', label: 'Launches and external moments', type: 'textarea', full: true, chase: true, chip: 'Launch Dates',
           placeholder: 'Product launches, seasonal moments, anything the plan has to hit…',
           help: 'Anything in the outside world the plan has to land against. Asset readiness is checked against these dates, so a moment named here is a moment the planning team can protect.' },
-        { id: 'internalDates', label: 'Internal deadlines', type: 'textarea', full: true, chase: true,
+        { id: 'internalDates', label: 'Internal deadlines', type: 'textarea', full: true, chase: true, chip: 'Internal Deadlines',
           placeholder: 'Strategy sprint, exec reviews, lock dates — plus who signs this off and the date they need it by…',
           help: 'The approval path is usually the real deadline. Name who signs off and when they need it, not only when the plan is due.' }
       ]
@@ -123,7 +123,7 @@ const SCHEMA = {
       title: 'People',
       sub: 'Who is involved, and what they care about.',
       fields: [
-        { id: 'stakeholders', label: 'Stakeholders', type: 'textarea', full: true, chase: true,
+        { id: 'stakeholders', label: 'Stakeholders', type: 'textarea', full: true, chase: true, chip: 'Stakeholders',
           placeholder: 'Name · role · what they care about…',
           help: 'What each one cares about matters as much as their name. A plan that answers the room it is presented to survives it.' }
       ]
@@ -131,13 +131,13 @@ const SCHEMA = {
 
     {
       id: 'principles',
-      title: 'Principles and mandatories',
+      title: 'Principles and Mandatories',
       sub: 'The rules the plan has to work inside.',
       fields: [
-        { id: 'mediaPrinciples', label: 'Media principles', type: 'textarea', full: true, chase: true,
+        { id: 'mediaPrinciples', label: 'Media principles', type: 'textarea', full: true, chase: true, chip: 'Media Principles',
           placeholder: 'How this brand believes media should work…',
           help: 'The standing beliefs a plan is judged against, rather than this plan’s specifics.' },
-        { id: 'constraints', label: 'Mandatories and exclusions', type: 'textarea', full: true, chase: true,
+        { id: 'constraints', label: 'Mandatories and exclusions', type: 'textarea', full: true, chase: true, chip: 'Mandatories',
           placeholder: 'Must-dos, channel mandates, brand-safety exclusions, category or regulatory restrictions…',
           help: 'Both directions: what the plan must include, and what it cannot go near. Regulatory and category rules belong here too — they are easiest to design around and most expensive to discover late.' },
         { id: 'xpaOverlaps', label: 'Other product areas to watch', type: 'textarea', full: true,
@@ -151,7 +151,7 @@ const SCHEMA = {
       title: 'Creative',
       sub: 'What the work is, what exists, and when it lands.',
       fields: [
-        { id: 'creativePlatform', label: 'Creative platform', type: 'textarea', full: true, chase: true,
+        { id: 'creativePlatform', label: 'Creative platform', type: 'textarea', full: true, chase: true, chip: 'Creative Platform',
           placeholder: 'The idea the work runs on…',
           help: 'The creative thought the plan carries. If it is not settled yet, say that — an unsettled platform changes what the plan can commit to.' },
         { id: 'assets', label: 'Assets', type: 'assets',
@@ -164,7 +164,7 @@ const SCHEMA = {
 
     {
       id: 'view',
-      title: 'Your own read',
+      title: 'Your Own Read',
       /* THE THIN STRATEGIC LAYER, and it is framed as raw material on purpose.
          Asking a client where they can win invites an answer they will then be
          held to; asking what they think invites the one thing the planning team
@@ -182,7 +182,7 @@ const SCHEMA = {
 
     {
       id: 'research',
-      title: 'Research and data',
+      title: 'Research and Data',
       sub: 'Anything the planning team should read alongside this.',
       fields: [
         /* FIRST, BECAUSE IT IS WHAT CLIENTS ACTUALLY HAVE. Research arrives as
@@ -274,5 +274,12 @@ SCHEMA.fields = () => SCHEMA.sections.flatMap(s => s.fields);
    form that refuses to submit gets a made-up budget instead of an honest gap,
    and an invented number is harder to catch than an empty box. */
 SCHEMA.chased = () => SCHEMA.fields().filter(f => f.chase).map(f => f.id);
+
+/* The short name a chased field goes by outside the form. The label is a
+   question because the form has to ask one; a chip is a name for the thing. */
+SCHEMA.chipFor = id => {
+  const f = SCHEMA.fields().find(x => x.id === id);
+  return (f && (f.chip || f.label)) || id;
+};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = { SCHEMA };

@@ -6,10 +6,6 @@
 (() => {
   const STORE_KEY = 'ltpbrief.v1';
 
-  /* A field's label, for anywhere that names one outside the form. */
-  const LABEL = {};
-  SCHEMA.sections.forEach(s => s.fields.forEach(f => { if (f.label) LABEL[f.id] = f.label; }));
-
   /* Which section owns a field, so a chase can scroll to the first one
      outstanding and a check can point at what it is about. */
   const FIELD_SECTION = {};
@@ -154,8 +150,8 @@
 
     el.progLabel.innerHTML = `${done} of ${SCHEMA.sections.length} sections answered` +
       (open.length
-        ? ` · <button type="button" class="chase" id="chaseBtn">${open.length} the team will chase</button>`
-        : ` · <span class="chase-clear">nothing outstanding</span>`);
+        ? ` · <button type="button" class="chase" id="chaseBtn">${open.length} To Chase</button>`
+        : ` · <span class="chase-clear">Nothing Outstanding</span>`);
     el.progFill.style.width = pct + '%';
 
     const btn = document.getElementById('chaseBtn');
@@ -282,7 +278,7 @@
 
         const del = document.createElement('button');
         del.type = 'button'; del.className = 'link-x';
-        del.setAttribute('aria-label', 'Remove this link');
+        del.setAttribute('aria-label', 'Remove This Link');
         del.textContent = '×';
         del.addEventListener('click', () => { rows.splice(i, 1); save(); draw(); markRail(); });
 
@@ -294,7 +290,7 @@
 
       const add = document.createElement('button');
       add.type = 'button'; add.className = 'link-add';
-      add.textContent = '+ Add a link';
+      add.textContent = '+ Add a Link';
       add.addEventListener('click', () => { rows.push({ label: '', url: '', why: '' }); save(); draw(); });
       list.appendChild(add);
     }
@@ -371,15 +367,6 @@
       other.addEventListener('input', () => { data[f.otherId] = other.value; save(); markRail(); });
       input.addEventListener('change', syncOther);
       wrap.appendChild(other);
-    }
-
-    // Optional AI helper button under the field (e.g. audience builder).
-    if (f.aiAction === 'audiences') {
-      const b = document.createElement('button');
-      b.type = 'button'; b.className = 'ai-mini';
-      b.setAttribute('data-tip', 'Get 2–3 candidate audiences with a rationale for each');
-      b.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest audiences';
-      wrap.appendChild(b);
     }
     // Optional reference link that opens in an in-app viewer.
     if (f.link) {
@@ -538,7 +525,7 @@
       '<svg class="gstar"><use href="#star"/></svg>' +
       '<div class="dz-text"><b>Add research &amp; input</b>' +
       '<span>Decks, trackers, transcripts, notes — drop them in or choose files</span></div>' +
-      '<button type="button" class="dz-btn">Choose files…</button>' +
+      '<button type="button" class="dz-btn">Choose Files…</button>' +
       '<input type="file" multiple hidden>' +
       '</div><div class="dz-status" hidden></div>';
     const input = zone.querySelector('input[type=file]');
@@ -597,7 +584,7 @@
       '<div class="dz-inner">' +
       '<svg class="gstar"><use href="#star"/></svg>' +
       '<div class="dz-text"><b>Start from a document</b><span>Drag in PDFs, CSVs or data files — Gemini fills the brief for you</span></div>' +
-      '<button type="button" class="dz-btn">Choose or paste…</button>' +
+      '<button type="button" class="dz-btn">Choose or Paste…</button>' +
       '<input type="file" accept=".pdf,.csv,.tsv,.txt,.md,.json,image/*" hidden>' +
       '</div><div class="dz-status" hidden></div>';
     const input = zone.querySelector('input[type=file]');
@@ -828,7 +815,7 @@
     renderRows();
 
     const add = document.createElement('button');
-    add.type = 'button'; add.className = 'add-asset'; add.textContent = '+ Add asset';
+    add.type = 'button'; add.className = 'add-asset'; add.textContent = '+ Add Asset';
     add.addEventListener('click', () => { data.assets.push(blankRow()); save(); renderRows(); });
     wrap.appendChild(add);
     return wrap;
@@ -930,7 +917,7 @@
   function validateBrief() {
     return SCHEMA.chased()
       .filter(id => !filled(id))
-      .map(id => ({ label: LABEL[id] || id, field: id }));
+      .map(id => ({ label: SCHEMA.chipFor(id), field: id }));
   }
   function renderHandoffReadiness() {
     const box = el.readiness;
@@ -968,11 +955,11 @@
 
   /* ---------- per-section refine ---------- */
   const REFINE_PRESETS = [
-    { label: 'More concise', instr: 'Make this section more concise without losing key facts.' },
+    { label: 'More Concise', instr: 'Make this section more concise without losing key facts.' },
     { label: 'Punchier', instr: 'Make this section punchier and more energetic; tighten the language.' },
     { label: 'Expand', instr: 'Expand this section with a bit more useful detail, staying faithful to the facts.' },
     { label: 'Simplify', instr: 'Simplify the language — plain, clear, and jargon-free.' },
-    { label: 'Fix grammar & flow', instr: 'Fix grammar and improve the flow; keep the meaning intact.' }
+    { label: 'Fix Grammar & Flow', instr: 'Fix grammar and improve the flow; keep the meaning intact.' }
   ];
   let refineTarget = null;
   let refineOverlay = null;
@@ -1031,8 +1018,8 @@
         '</div>' +
         '<div class="rf-prev-foot">' +
           '<button class="rf-discard" type="button">Discard</button>' +
-          '<button class="rf-again" type="button">Try another instruction</button>' +
-          '<button class="btn primary rf-commit" type="button">Commit to brief</button>' +
+          '<button class="rf-again" type="button">Try Another Instruction</button>' +
+          '<button class="btn primary rf-commit" type="button">Commit to Brief</button>' +
         '</div>' +
       '</div>' +
       '</div>';
@@ -1164,7 +1151,7 @@
       '<div class="draft-body brief-doc"></div>' +
       '<div class="rf-prev-foot">' +
         '<button class="rf-discard" type="button">Discard</button>' +
-        '<button class="btn primary rf-commit" type="button">Commit to brief</button>' +
+        '<button class="btn primary rf-commit" type="button">Commit to Brief</button>' +
       '</div>';
     draftModal.card.querySelector('.draft-body').innerHTML = Brief.toHtml(md);
     draftModal.card.querySelector('.rf-close').addEventListener('click', () => draftModal.close());
@@ -1238,7 +1225,7 @@
         'spellcheck="false" aria-label="Type the confirmation phrase" />' +
       '<div class="nuke-actions">' +
         '<button class="btn nuke-cancel" type="button">Cancel</button>' +
-        '<button class="btn nuke-go" type="button" disabled>Delete everything</button>' +
+        '<button class="btn nuke-go" type="button" disabled>Delete Everything</button>' +
       '</div>';
     const input = nukeModal.card.querySelector('.nuke-input');
     const go = nukeModal.card.querySelector('.nuke-go');
@@ -1281,7 +1268,7 @@
       '<p class="co-empty" style="margin:-2px 0 10px">Paste text or upload a PDF / image / doc. Gemini fills what it can — you review before it saves.</p>' +
       '<textarea class="rf-custom ing-text" rows="5" placeholder="Paste last year&rsquo;s LTP, a research summary, a client email&hellip;"></textarea>' +
       '<div class="ing-file"><label class="rf-chip ing-pick">Choose file<input type="file" accept=".pdf,.txt,.md,image/*" hidden></label><span class="ing-name co-empty"></span></div>' +
-      '<div class="rf-foot"><button class="btn primary ing-go" type="button">Extract &amp; fill</button></div>' +
+      '<div class="rf-foot"><button class="btn primary ing-go" type="button">Extract &amp; Fill</button></div>' +
       '<div class="rf-loading ing-load" hidden><svg class="gstar sp"><use href="#star"/></svg> Reading&hellip;</div>';
     modalClose(ingestModal);
     const fileInput = ingestModal.card.querySelector('input[type=file]');
@@ -1332,9 +1319,9 @@
       '<div class="iv-log"></div>' +
       '<div class="iv-input"><input type="text" placeholder="Type your answer&hellip;" disabled><button class="btn primary iv-send" type="button" disabled>Send</button></div>' +
       '<div class="iv-foot">' +
-        '<button class="iv-skip" type="button" disabled>Skip this question</button>' +
+        '<button class="iv-skip" type="button" disabled>Skip This Question</button>' +
         '<span class="iv-note">Answers save as you go</span>' +
-        '<button class="iv-quit" type="button">Finish &amp; close</button>' +
+        '<button class="iv-quit" type="button">Finish &amp; Close</button>' +
       '</div>';
     const input = ivModal.card.querySelector('.iv-input input');
     const send = ivModal.card.querySelector('.iv-send');
