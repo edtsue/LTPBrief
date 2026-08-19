@@ -1,108 +1,145 @@
 /* Brief assembly + export.
-   A deterministic fallback brief is always available from the entered data;
-   "Draft with Gemini" upgrades it to prose. */
+ *
+ * A deterministic brief is always available from the entered answers; "Draft
+ * with Gemini" upgrades it to prose. Either way the export is the handoff to
+ * LTP Strategy, and it has two readers that want opposite things: a strategist
+ * and the model they drop it on read the prose, while Strategy's start screen
+ * reads the block at the foot and can register the plan without anybody
+ * retyping four fields.
+ */
 
 const Brief = (() => {
-  const F = {}; // fieldId -> label, built from schema
-  const STEP_OF = {};
-  SCHEMA.steps.forEach(s => s.groups.forEach(g => g.fields.forEach(f => {
-    F[f.id] = f.label; STEP_OF[f.id] = s.title;
-  })));
+  const F = {};
+  const SECTION_OF = {};
+  SCHEMA.sections.forEach(s => s.fields.forEach(f => {
+    F[f.id] = f.label; SECTION_OF[f.id] = s.title;
+  }));
 
   function val(data, id) {
     const v = data[id];
     if (v == null || v === '') return '';
+    if (Array.isArray(v)) return v.filter(Boolean).join(', ');
     return String(v).trim();
+  }
+
+  /* A select with an Other escape answers in two fields. What the client typed
+     is the real answer; "Other" is only how they got to the box. */
+  function chosen(data, id) {
+    const v = val(data, id);
+    if (v !== 'Other') return v;
+    return val(data, id + 'Other');
+  }
+
+  function budgetLine(data) {
+    const b = data.budget;
+    if (!b || typeof b !== 'object') return val(data, 'budget');
+    const money = n => (n == null ? '' : '$' + Number(n).toLocaleString('en-US'));
+    if (b.low == null && b.high == null) return '';
+    if (b.low === b.high) return money(b.low);
+    return `${money(b.low)} – ${money(b.high)}`;
   }
 
   function assetLines(data) {
     const rows = Array.isArray(data.assets) ? data.assets : [];
-    return rows.filter(r => r && (r.name || r.ready)).map(r =>
-      `- **${r.name || 'Untitled asset'}** — ${r.status || 'status TBD'}${r.ready ? `, ready ${r.ready}` : ''}`
-    );
+    return rows.filter(r => r && (r.name || r.ready)).map(r => {
+      const bits = [r.type, r.count ? `×${r.count}` : '', r.status || 'status TBD',
+        r.ready ? `ready ${r.ready}` : ''].filter(Boolean);
+      return `- **${r.name || 'Untitled asset'}** — ${bits.join(', ')}`;
+    });
   }
 
-  // Plain-markdown brief straight from the fields (no model needed).
+  function linkLines(data) {
+    const rows = Array.isArray(data.links) ? data.links : [];
+    return rows.filter(r => r && (r.url || r.label)).map(r =>
+      `- **${r.label || r.url}** — ${r.url}${r.why ? ` · ${r.why}` : ''}`);
+  }
+
+  function docLines(data) {
+    const rows = Array.isArray(data.docs) ? data.docs.filter(d => d && d.name) : [];
+    return rows.map(d => `- **${d.name}**${d.note ? ` — ${d.note}` : ''}`);
+  }
+
+  /* Rendered by type rather than by name, so a field added to the schema
+     appears in the export without this file being touched. */
+  function fieldLines(data, f) {
+    if (f.type === 'dropzone') return [];
+    if (f.type === 'budget') { const b = budgetLine(data); return b ? [`- **${f.label}:** ${b}`] : []; }
+    if (f.type === 'assets') return assetLines(data);
+    if (f.type === 'links') return linkLines(data);
+    if (f.type === 'docs') return docLines(data);
+    if (f.type === 'select') { const v = chosen(data, f.id); return v ? [`- **${f.label}:** ${v}`] : []; }
+    const v = val(data, f.id);
+    return v ? [`- **${f.label}:** ${v}`] : [];
+  }
+
+  function title(data) {
+    return [chosen(data, 'productArea'), chosen(data, 'market'), val(data, 'cycle')]
+      .filter(Boolean).join(' · ');
+  }
+
+  /* The prose. This is what the brief view shows and what the client can edit,
+     so it carries no machine block — see `toExport`. */
   function toMarkdown(data) {
-    const L = [];
-    const title = [val(data, 'productArea'), val(data, 'market'), val(data, 'planningYear')].filter(Boolean).join(' · ');
-    L.push(`# LTP Brief${title ? ' — ' + title : ''}`, '');
+    const head = title(data);
+    const L = [`# LTP Brief Intake${head ? ' — ' + head : ''}`, ''];
 
-    L.push('## Context', '');
-    [['productArea', 'Product Area'], ['market', 'Market'], ['planningYear', 'Planning year'], ['budget', 'Budget']]
-      .forEach(([id, lbl]) => { if (val(data, id)) L.push(`- **${lbl}:** ${val(data, id)}`); });
-    ['launchDates', 'internalDates', 'stakeholders'].forEach(id => {
-      if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`);
+    SCHEMA.sections.forEach(s => {
+      const lines = s.fields.flatMap(f => fieldLines(data, f));
+      if (!lines.length) return;
+      L.push(`## ${s.title}`, '', ...lines, '');
+      /* Said where it is true rather than once at the foot, because a planner
+         reading the research section is the person who needs to know the files
+         are not attached. */
+      if (s.id === 'research' && docLines(data).length) {
+        L.push('_Files sit with the person who filled this in — request the originals directly._', '');
+      }
     });
-    L.push('');
-    L.push('### Guardrails', '');
-    ['constraints', 'xpaOverlaps'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
-    L.push('');
-
-    L.push('## Growth Strategy', '');
-    let driverList = Array.isArray(data.growthDriver) ? data.growthDriver.slice() : (data.growthDriver ? [String(data.growthDriver)] : []);
-    // Each group's Other stands in for whatever was typed to explain it; an
-    // Other with nothing written stays as the group's name so the reader can
-    // see the question was asked and not answered.
-    const OTHER_OF = {};
-    SCHEMA.steps.forEach(st => st.groups.forEach(gr => gr.fields.forEach(fl => {
-      (fl.optgroups || []).forEach(og => { if (og.otherId) OTHER_OF['Other — ' + og.label] = og.otherId; });
-    })));
-    driverList = driverList.map(x => {
-      const id = OTHER_OF[x];
-      if (!id) return x;
-      const written = val(data, id);
-      return written ? `${x.replace('Other — ', '')}: ${written}` : x;
-    });
-    // legacy single Other, from briefs started before each group had its own
-    if (driverList.includes('Other')) {
-      driverList = driverList.filter(x => x !== 'Other');
-      if (val(data, 'growthDriverOther')) driverList.push(val(data, 'growthDriverOther'));
-    }
-    const driver = driverList.join(', ');
-    if (driver) L.push(`- **Source of brand growth:** ${driver}`);
-    if (val(data, 'sourceAudience')) L.push(`- **${F['sourceAudience']}:** ${val(data, 'sourceAudience')}`);
-    if (val(data, 'commsStrategy')) L.push(`- **${F['commsStrategy']}:** ${val(data, 'commsStrategy')}`);
-    L.push('');
-
-    L.push('## Landscape', '');
-    ['competitors', 'categoryDynamics', 'whiteSpace', 'culturalTerritories'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
-    L.push('');
-
-    L.push('## Full Funnel', '');
-    /* The stage list is the plan's, not the schema's — someone may have renamed
-       Loyalty to Retention or added one. Fall back to the schema only when the
-       funnel was never edited. */
-    const kpis = (Array.isArray(data.funnelStages) && data.funnelStages.length)
-      ? data.funnelStages
-      : (() => {
-          try { return SCHEMA.steps.find(s => s.id === 'funnel').groups.flatMap(g => g.fields).find(f => f.type === 'funnel').stages; }
-          catch { return []; }
-        })();
-    kpis.forEach(st => { if (val(data, st.id)) L.push(`- **${st.label}:** ${val(data, st.id)}`); });
-    L.push('');
-
-    L.push('## Platform, Positioning and Creative', '');
-    ['platform', 'positioning'].forEach(id => { if (val(data, id)) L.push(`- **${F[id]}:** ${val(data, id)}`); });
-    L.push('');
-    L.push('### Creative assets', '');
-    const a = assetLines(data);
-    L.push(...(a.length ? a : ['- _None listed yet._']));
-    L.push('');
-
-    // The files themselves stay on the sender's device, so the brief carries
-    // the manifest — what exists, and why it matters — for the planning team
-    // to ask for.
-    const docs = Array.isArray(data.docs) ? data.docs.filter(d => d && d.name) : [];
-    if (docs.length || val(data, 'researchNotes')) {
-      L.push('## Other Research & Input', '');
-      docs.forEach(d => L.push(`- **${d.name}**${d.note ? ` — ${d.note}` : ''}`));
-      if (docs.length) L.push('', '_Files sit with the person who filled this in — request them directly._', '');
-      if (val(data, 'researchNotes')) L.push(`- **${F['researchNotes']}:** ${val(data, 'researchNotes')}`);
-      L.push('');
-    }
 
     return L.join('\n');
+  }
+
+  /* WHAT STRATEGY CAN REGISTER A PLAN FROM.
+     Built from the answers, never from the prose: the brief view is editable,
+     and an edit that reworded a heading must not be able to change what gets
+     registered — or produce a block that no longer parses. */
+  function handoff(data) {
+    const s = SCHEMA.plan.slug;
+    const plan = {};
+    /* An empty answer is left out. `slug('')` is `''`, and a plan registered
+       under the empty string is worse than one with a field visibly missing. */
+    const put = (key, v) => { if (v) plan[key] = v; };
+    put('region', val(data, 'region'));
+    put('market', s(chosen(data, 'market')));
+    put('pa', s(chosen(data, 'productArea')));
+    put('cycle', val(data, 'cycle'));
+
+    const out = { tool: 'ltp-brief-intake', version: 1, plan };
+
+    const b = data.budget;
+    if (b && typeof b === 'object' && (b.low != null || b.high != null)) {
+      out.budget = { low: b.low, high: b.high, scope: (data.budgetScope || []).map(s) };
+    }
+    const dates = {};
+    if (val(data, 'launchDates')) dates.launch = val(data, 'launchDates');
+    if (val(data, 'internalDates')) dates.internal = val(data, 'internalDates');
+    if (Object.keys(dates).length) out.dates = dates;
+
+    const links = (Array.isArray(data.links) ? data.links : [])
+      .filter(r => r && r.url)
+      .map(r => ({ label: r.label || '', url: r.url, why: r.why || '' }));
+    if (links.length) out.links = links;
+
+    return out;
+  }
+
+  /* `md` is the brief as it currently stands, which may be a Gemini draft the
+     client has since edited by hand. The block is appended fresh regardless. */
+  function toExport(data, md) {
+    const prose = (md == null ? toMarkdown(data) : md).replace(/\s+$/, '');
+    return [
+      prose, '', '## Handoff', '',
+      '```json', JSON.stringify(handoff(data), null, 2), '```', ''
+    ].join('\n');
   }
 
   // Minimal, safe markdown -> HTML for on-page rendering.
@@ -161,5 +198,7 @@ const Brief = (() => {
     return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
   }
 
-  return { toMarkdown, toHtml, download, htmlToMarkdown };
+  return { toMarkdown, toExport, handoff, toHtml, download, htmlToMarkdown };
 })();
+
+if (typeof module !== 'undefined' && module.exports) module.exports = { Brief };
