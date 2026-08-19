@@ -10,12 +10,17 @@ fills it in one sitting and exports a brief that a strategist drops onto LTP
 Strategy.
 
 The tool stops asking the client to pre-answer strategy. Growth drivers, comms
-strategy, category dynamics, cultural territories, funnel KPIs, brand platform
-and positioning are what LTP Strategy exists to produce; asking a client to
-guess at them means Strategy spends its session arguing with a guess. What
-stays is what the client alone owns — the plan's identity, the money, the
-dates, the people, the constraints, the creative, and their own read on the
-category.
+strategy, category dynamics, cultural territories, per-stage funnel KPIs, brand
+platform and positioning are what LTP Strategy exists to produce; asking a
+client to guess at them means Strategy spends its session arguing with a guess.
+What stays is what the client alone owns — the plan's identity, the money, the
+dates, the people, the constraints, the creative, what brand and direct
+response are each on the hook for, and their own read on the category.
+
+The line between the two is ownership, not subject. The funnel is a case in
+point: the client's brand and DR requirements stay, because only they can set
+them and everything downstream is allocated against them. Naming the metric for
+each funnel stage goes, because that is the answer Strategy is for.
 
 ## Why one page
 
@@ -66,7 +71,7 @@ The README names `ltpstrategy/js/schema.js` as the origin.
 
 ## The page
 
-Ten sections, scrolled, in this order.
+Eleven sections, scrolled, in this order.
 
 ### 1 · The plan
 
@@ -86,13 +91,33 @@ Ten sections, scrolled, in this order.
 | `objective` | textarea | What this plan has to achieve. |
 | `successMeasure` | textarea | How success will be judged, including measurement already bought — BLS, MMM, incrementality, a named tracker. |
 
-### 3 · Audience
+### 3 · Full funnel
+
+What the business requires of the funnel, which is not the same question as
+what each stage's KPI should be. The retired `funnelKpis` asked the client to
+name a metric per stage — that is Strategy's output and a client can only guess
+at it. This asks what brand and direct response are each on the hook for, which
+only the client knows and which constrains every allocation downstream.
+
+| id | type | notes |
+| --- | --- | --- |
+| `funnelSplit` | text | Any required balance between brand and DR, if one is set. Free text — `70/30`, `DR-led`, `no fixed split` are all valid answers. |
+| `brRequirements` | textarea | What brand has to deliver. |
+| `drRequirements` | textarea | What direct response has to deliver, including efficiency targets — CPA, ROAS, CPI. |
+
+Labels read **Brand (BR)** and **Direct Response (DR)**.
+
+None of the three is on the chase list. A plan can legitimately be brand-only or
+DR-only, so a blank here is a real answer rather than an omission, and chasing
+it would push a client into inventing a requirement that does not exist.
+
+### 4 · Audience
 
 | id | type | notes |
 | --- | --- | --- |
 | `targetAudience` | textarea | Helper text folds in the source-of-growth prompt rather than asking twice. |
 
-### 4 · Money
+### 5 · Money
 
 | id | type | notes |
 | --- | --- | --- |
@@ -100,20 +125,20 @@ Ten sections, scrolled, in this order.
 | `budgetScope` | pills | Multi-select: working media / production / agency fees. |
 | `committed` | textarea | What is already committed against the budget — upfronts, sponsorships, signed always-on. |
 
-### 5 · Timing
+### 6 · Timing
 
 | id | type | notes |
 | --- | --- | --- |
 | `launchDates` | textarea | Launches and external moments the plan must land around. |
 | `internalDates` | textarea | Placeholder prompts the approval path and the sign-off date. |
 
-### 6 · People
+### 7 · People
 
 | id | type | notes |
 | --- | --- | --- |
 | `stakeholders` | textarea | Name, role, and what they care about. |
 
-### 7 · Principles and mandatories
+### 8 · Principles and mandatories
 
 | id | type | notes |
 | --- | --- | --- |
@@ -121,7 +146,7 @@ Ten sections, scrolled, in this order.
 | `constraints` | textarea | Mandatories and exclusions. Placeholder prompts brand safety and any regulatory or category restriction. |
 | `xpaOverlaps` | textarea | Where another product area may collide — shared domains, overlapping audiences, clashing flighting. |
 
-### 8 · Creative
+### 9 · Creative
 
 | id | type | notes |
 | --- | --- | --- |
@@ -129,7 +154,7 @@ Ten sections, scrolled, in this order.
 | `assets` | assets | Existing table, extended with a **type** column and a **count** column. Columns: name, type, count, status, ready date. |
 | `localisation` | textarea | Which languages assets exist in, and whether localisation is funded. |
 
-### 9 · Your own read
+### 10 · Your own read
 
 The thin strategic layer. Framed as the client's view for the planning team to
 work from, never as an answer.
@@ -139,7 +164,7 @@ work from, never as an answer.
 | `competitors` | textarea | Who the client sees as the competition. |
 | `whiteSpace` | textarea | Relabelled "Where you think we can win". Id kept for migration. |
 
-### 10 · Research and data
+### 11 · Research and data
 
 Ordered by what clients actually have.
 
@@ -183,7 +208,7 @@ A brief carrying a budget, a date and a product area but no statement of what
 the money is for leaves Strategy starting from nothing, which makes it the most
 expensive blank on the page.
 
-The rail shows a persistent count — "6 of 10 sections answered · 3 fields the
+The rail shows a persistent count — "7 of 11 sections answered · 3 fields the
 planning team will chase you for" — and clicking the count jumps to the first
 outstanding one. **Nothing blocks.** A client who does not yet know the budget
 must be able to finish and say so; a form that refuses to proceed gets a made-up
@@ -196,7 +221,7 @@ number instead of an honest gap.
   tool. `<title>` follows.
 - The favicon is corrected. It currently draws a blue brief tile while
   `#ic-brief` renders red, so the tab and the header disagree.
-- The left rail keeps its place and changes job: the ten section names as anchor
+- The left rail keeps its place and changes job: the eleven section names as anchor
   links, each with a state dot (untouched / started / done) that scroll-spies.
   The stepper and progress bar are deleted.
 - The co-pilot stays on the right, still collapsible, with two controls:
@@ -245,10 +270,16 @@ Answers already in a browser include fields that will not exist. On load:
 - Surviving ids carry over unchanged.
 - `sourceAudience` appends into `targetAudience` — the closest semantic match.
 - `planningYear` seeds `cycle` where it parses as a year.
+- The five `kpi*` stages append into `brRequirements` under a **Stage KPIs you
+  entered earlier** heading, rather than into `researchNotes`. They are the
+  closest thing on the new page to where that thinking belongs, and burying
+  five considered answers in a catch-all field would read as having lost them.
+  They are not split across `brRequirements` and `drRequirements` by stage —
+  guessing that awareness is brand and purchase is DR would put words in the
+  client's mouth.
 - Everything else dropped — `growthDriver` and its other-ids, `commsStrategy`,
-  `categoryDynamics`, `culturalTerritories`, the five `kpi*` stages, `platform`,
-  `positioning` — is parked into `researchNotes` under a **From your earlier
-  draft** heading.
+  `categoryDynamics`, `culturalTerritories`, `platform`, `positioning` — is
+  parked into `researchNotes` under a **From your earlier draft** heading.
 - The client is told once, in the readiness area, that this happened.
 
 Nothing is silently discarded.
