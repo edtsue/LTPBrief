@@ -90,3 +90,14 @@ test('every field type the schema uses has a renderer', () => {
     !PLAIN.has(t) && !new RegExp(`f\\.type === '${t}'`).test(app));
   assert.deepEqual(missing, [], `these render as a plain text box: ${missing.join(', ')}`);
 });
+
+/* The host serves the repo root on a no-build static site: anything committed
+   is fetchable unless it is kept out of the deployment. index.html, css/ and
+   js/ are meant to be public. Design notes and the test suite are not — this
+   is a URL a client is sent. */
+test('nothing but the site itself is shipped to the host', () => {
+  const ignored = fs.readFileSync(path.join(root, '.vercelignore'), 'utf8')
+    .split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  ['docs', 'test'].forEach(dir =>
+    assert.ok(ignored.includes(dir), `${dir}/ would be readable at ${dir}/… in production`));
+});

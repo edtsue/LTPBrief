@@ -1,0 +1,10 @@
+# THIS IS A NO-BUILD STATIC SITE, SO THE HOST SERVES THE REPO ROOT.
+# index.html, css/ and js/ are meant to be public. Everything else in the repo
+# is public too unless it is kept out of the deployment — and "in the repo" now
+# includes design notes and a test suite, neither of which belongs on a URL a
+# client is sent.
+#
+# Blocked here rather than with a routes rule because vercel.json sets
+# cleanUrls, and routes cannot be combined with it.
+docs
+test
