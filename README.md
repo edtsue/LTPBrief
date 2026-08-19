@@ -1,17 +1,37 @@
-# LTP Brief
+# LTP Brief Intake
 
-An assisted intake for the long-term media planning process. The client completes a
-six-step brief; an AI co-pilot reviews inputs as they go — flagging contradictions with
-earlier answers and offering pre-fills — then synthesizes a clean brief to hand off.
+An intake for the long-term media planning process. The client fills one page and
+exports a brief that a strategist drops onto LTP Strategy.
 
-## Flow
+## What it asks, and what it does not
 
-1. **Context** — product area, market, year, budget (range ok), launch & internal dates, stakeholders, guardrails
-2. **Growth Strategy** — path to growth + source-of-growth audience
-3. **Landscape** — competitors, category dynamics, white space
-4. **Full Funnel** — a KPI per funnel stage + cultural territories
-5. **Platform, Positioning and Creative** — the idea the brand stands on, how it's positioned, and the creative that carries it — what's available or in production, and when it's ready
-6. **Other Research/Input** — internal research and documents the planning team should read alongside the brief
+The page collects what the client alone can answer. The strategy itself — the growth
+driver, the comms strategy, category dynamics, cultural territories, and the KPI for
+each funnel stage — is what LTP Strategy exists to produce, so it is deliberately not
+asked here. A client can only guess at those, and a guess on the page is worse than a
+blank: the planning team then argues with the guess instead of with the brief.
+
+The line is ownership, not subject. The funnel is the case in point — what Brand and
+Direct Response are each on the hook for stays, because only the client sets it and
+every allocation is made against it; naming the metric for each funnel part goes.
+
+## The page
+
+1. **The plan** — region, market, product area, cycle
+2. **The ask** — what the plan has to achieve, and how success is judged
+3. **Full funnel** — what Brand (BR) and Direct Response (DR) each have to deliver
+4. **Audience** — who the plan is for
+5. **Money** — the range, what it covers, what is already committed
+6. **Timing** — launches, internal deadlines, the approval path
+7. **People** — stakeholders and what they care about
+8. **Principles and mandatories** — media principles, exclusions, cross-PA overlaps
+9. **Creative** — the platform, the assets and when they land, localisation
+10. **Your own read** — competitors and where the client thinks they can win
+11. **Research and data** — links, written notes, files
+
+Nothing blocks. The rail counts what the planning team will chase, and a client who
+does not know the budget yet must be able to finish and say so — a form that refuses
+to submit gets an invented number, which is harder to catch later than an empty box.
 
 A document is read **once**, when it lands: the assistant returns a short summary of what
 a planner would act on, and every call after that carries the summary rather than the file.
@@ -22,8 +42,24 @@ to put them — so the brief carries the manifest (name + why it matters) for th
 team to request. Text-shaped files (csv, txt, md, json) also have their contents read, up
 to 12k characters each and 90k in total, so the co-pilot can reason against them.
 
-Answers autosave to the browser. The final step generates an exportable brief
-(copy / download Markdown; one-click Google Doc export planned).
+Answers autosave to the browser. The Full Brief view generates an exportable brief
+(copy / download Markdown / PDF / Google Doc).
+
+## The handoff to LTP Strategy
+
+The export is one Markdown file with a JSON block at its foot, under a `Handoff`
+heading. A strategist and the model they drop it on read the prose; the block is what
+Strategy's start screen can one day register a plan from without anybody retyping
+four fields. Today Strategy ignores it.
+
+The block is built from the answers, never from the prose — the brief view is
+editable, and an edit must not be able to change what gets registered.
+
+**The region, market and product-area lists in `js/schema.js` are a copy of LTP
+Strategy's own** (`ltpstrategy/js/schema.js`, which is the source of truth). A brief
+saying `US` where Strategy registers `USA` does not error; it produces a plan nobody
+can find. `test/taxonomy.test.js` checks the copy against Strategy's file directly
+whenever the two repos sit side by side on disk, and skips when they do not.
 
 ## Stack
 
@@ -83,3 +119,11 @@ Without a key the form still works, saves, and exports — only the live assist 
 ## Deploy
 
 Production domain: `ltpbrief.mfgpilots.com`.
+
+## Briefs saved on the old form
+
+Answers written against the six-step version still open. Fields that survive carry
+over; the five funnel KPIs move to the Brand field, the source-of-growth audience
+joins the target audience, and everything else retired is parked under **Research and
+data** with the question it answered. Nothing is discarded, and the client is told
+once. See `js/migrate.js`.

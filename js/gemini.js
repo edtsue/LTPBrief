@@ -1,13 +1,12 @@
-/* Thin client for the assist + synthesis endpoints.
-   All model calls are proxied server-side so the key never reaches the browser. */
+/* Thin client for the model endpoints.
+   Every call is proxied server-side so the key never reaches the browser. */
 
 const Gemini = (() => {
   /* Research documents can carry up to 90k characters of extracted text. That
      is worth sending when the model is writing the brief; it is dead weight on
-     an assist call that fires every 700ms while someone types, where it was
-     costing roughly eight times the tokens of the brief itself. The review
-     calls get the manifest — name and why it matters — and the synthesis gets
-     the substance. */
+     an interview turn, where it was costing roughly eight times the tokens of
+     the brief itself. The conversational calls get the manifest — name and why
+     it matters — and the synthesis gets the substance. */
   function lean(data) {
     if (!data || !Array.isArray(data.docs)) return data;
     return Object.assign({}, data, {
@@ -45,35 +44,13 @@ const Gemini = (() => {
     return res.json();
   }
 
-  /* Cheap, stable hash of what a call would see. Two reviews of identical
-     content ask the same question, and the answer cannot have changed. */
-  function hash(str) {
-    let h = 2166136261;
-    for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
-    return (h >>> 0).toString(36);
-  }
-  const memo = new Map();
-  async function memoised(action, key, run) {
-    const k = action + ':' + key;
-    if (memo.has(k)) return memo.get(k);
-    const out = await run();
-    if (memo.size > 60) memo.clear();
-    memo.set(k, out);
-    return out;
-  }
-
+  /* FOUR CALLS, WHERE THERE WERE NINE.
+     Live per-field review, funnel-KPI suggestions, audience generation and free
+     chat all came off with the wizard. Review existed to catch a contradiction
+     with a step you could no longer see; on one page you can see it. The KPI
+     grid and the audience builder were asking the client to produce what
+     Strategy exists to produce. */
   return {
-    // Review the active step against everything entered so far.
-    // -> { checks: [{severity,title,body}], suggestions: [{fieldId,label,value,rationale}] }
-    /* Review the active step. `fields` is that step's own answers in full;
-       `data` is the lean whole-brief context the review needs to spot a
-       contradiction. Identical input returns the cached verdict rather than
-       asking the same question twice — blur fires this far more often than
-       the content actually changes. */
-    assist(stepId, data, fields) {
-      const payload = { stepId, data: lean(data), fields: fields || null };
-      return memoised('assist', stepId + ':' + hash(JSON.stringify(payload)), () => call('assist', payload));
-    },
     /* Read an uploaded document once; everything after carries the summary. */
     digest(name, text) {
       return call('digest', { name, text });
@@ -88,14 +65,6 @@ const Gemini = (() => {
     refine(heading, content, instruction) {
       return call('refine', { heading, content, instruction });
     },
-    // Suggest a KPI for every funnel stage. -> { kpiAwareness, ... }
-    funnelKpis(data, stages) {
-      return call('funnel-kpis', { data: lean(data), stages });
-    },
-    // Candidate source-of-growth audiences. -> { options: [{title,definition,rationale}] }
-    audiences(data) {
-      return call('audiences', { data: lean(data) });
-    },
     // Extract a brief from pasted text or a file. -> { fields, assets, summary }
     ingest(payload) {
       return call('ingest', payload);
@@ -103,10 +72,6 @@ const Gemini = (() => {
     // One interview turn. -> { message, updates:[{fieldId,value}], done }
     interview(data, history) {
       return call('interview', { data: lean(data), history });
-    },
-    // Free-form question about the current step. -> { answer }
-    ask(stepId, data, question) {
-      return call('ask', { stepId, data: lean(data), question });
     }
   };
 })();

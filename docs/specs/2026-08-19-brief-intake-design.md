@@ -1,7 +1,7 @@
 # LTP Brief Intake — design
 
 **Date:** 2026-08-19
-**Status:** approved, not yet implemented
+**Status:** implemented, 2026-08-19
 
 ## What changes
 
@@ -339,7 +339,7 @@ request against production.
 
 ## Deliberately not included
 
-- **Stored uploads.** Vercel Blob would make files travel, but the gate is one
+- **Stored uploads.** Blob storage would make files travel, but the gate is one
   shared password, so it would put client research behind a credential several
   people hold. That needs its own access model, not a field on an intake form.
 - **Teaching Strategy to read the handoff block.** Deferred by choice; the block

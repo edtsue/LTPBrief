@@ -76,3 +76,31 @@ test('a market typed into Other travels under its own name', () => {
   const block = handoff(Brief.toExport({ market: 'Other', marketOther: 'Nordics' }));
   assert.equal(block.plan.market, 'nordics');
 });
+
+/* A machine block whose budget reads "$4M – $6M" has moved the parsing problem
+   rather than solved it — the next reader has to know that "M" means six
+   zeroes and that the dash is an en dash. Numbers, or the field is not worth
+   putting in the block. */
+test('the budget travels as numbers, not as the string on screen', () => {
+  const { Brief } = load();
+  const block = handoff(Brief.toExport({ budget: { low: 4, high: 6 } }));
+  assert.deepEqual(block.budget.low, 4000000);
+  assert.deepEqual(block.budget.high, 6000000);
+});
+
+test('a budget dragged to a single number travels as one', () => {
+  const { Brief } = load();
+  const block = handoff(Brief.toExport({ budget: { low: 5, high: 5 } }));
+  assert.equal(block.budget.low, 5000000);
+  assert.equal(block.budget.high, 5000000);
+});
+
+test('a brief with no budget carries no budget key rather than a null one', () => {
+  const { Brief } = load();
+  assert.ok(!('budget' in handoff(Brief.toExport({ region: 'na' }))));
+});
+
+test('the prose still shows the budget the way a person reads it', () => {
+  const { Brief } = load();
+  assert.match(Brief.toMarkdown({ budget: { low: 4, high: 6 } }), /\$4M – \$6M/);
+});

@@ -1,65 +1,41 @@
-/* App controller: renders the active step, persists to localStorage,
-   drives step navigation, and orchestrates the Gemini co-pilot. */
+/* LTP Brief Intake — the page controller.
+   Draws every section at once, persists to localStorage, and drives the two
+   things the co-pilot still does. There is no active step: navigation is
+   scrolling, so nothing here re-renders when the reader moves. */
 
 (() => {
   const STORE_KEY = 'ltpbrief.v1';
-  const steps = SCHEMA.steps;
-  /* The five stages in the schema are a starting point, not the shape of every
-     plan — a subscription business wants Retention where a launch wants Trial.
-     So the live list lives in `data`, which means it saves, exports and undoes
-     with everything else, and the schema supplies it only until someone edits
-     it. Read it through liveStages(); never touch f.stages directly. */
-  const DEFAULT_STAGES = (() => {
-    try { return steps.find(s => s.id === 'funnel').groups.flatMap(g => g.fields).find(f => f.type === 'funnel').stages; }
-    catch { return []; }
-  })();
-  const STAGE_COLORS = ['#EA4335', '#34A853', '#FBBC04', '#4285F4', '#9B72CB', '#00ACC1', '#F4511E', '#7CB342'];
-  function liveStages() {
-    const custom = data && data.funnelStages;
-    return Array.isArray(custom) && custom.length ? custom : DEFAULT_STAGES;
-  }
-  /* The taper is computed, not a lookup table: it has to look like a funnel at
-     three stages and at eight. Widest stays 100%, narrowest 46%, evenly spaced. */
-  function tierWidth(i, n) {
-    if (n <= 1) return 100;
-    return Math.round(100 - (i * (100 - 46)) / (n - 1));
-  }
 
-  const FIELD_STEP = {};
-  steps.forEach((s, i) => s.groups.forEach(g => g.fields.forEach(f => {
-    if (f.type === 'funnel') return;          // mapped by mapFunnelFields(), which follows the live list
-    if (f.type !== 'dropzone') { FIELD_STEP[f.id] = i; if (f.otherField) FIELD_STEP[f.id + 'Other'] = i; }
-  })));
-  /* Click-to-fix jumps to the step owning a field id, so a stage added after
-     boot has to be registered or its check becomes unclickable. */
-  function mapFunnelFields() {
-    const i = steps.findIndex(s => s.id === 'funnel');
-    if (i < 0) return;
-    liveStages().forEach(st => { FIELD_STEP[st.id] = i; });
-  }
+  /* A field's label, for anywhere that names one outside the form. */
+  const LABEL = {};
+  SCHEMA.sections.forEach(s => s.fields.forEach(f => { if (f.label) LABEL[f.id] = f.label; }));
 
+  /* Which section owns a field, so a chase can scroll to the first one
+     outstanding and a check can point at what it is about. */
+  const FIELD_SECTION = {};
+  SCHEMA.sections.forEach(s => s.fields.forEach(f => {
+    if (f.type === 'dropzone') return;
+    FIELD_SECTION[f.id] = s.id;
+    if (f.otherId) FIELD_SECTION[f.otherId] = s.id;
+  }));
   const el = {
     app: document.getElementById('app'),
     steps: document.getElementById('steps'),
     progLabel: document.getElementById('progLabel'),
     progFill: document.getElementById('progFill'),
-    stepTitle: document.getElementById('stepTitle'),
-    stepSub: document.getElementById('stepSub'),
     fields: document.getElementById('fields'),
-    backBtn: document.getElementById('backBtn'),
     nextBtn: document.getElementById('nextBtn'),
     saveState: document.getElementById('saveState'),
     coStatus: document.getElementById('coStatus'),
     coBody: document.getElementById('coBody'),
     coAnswer: document.getElementById('coAnswer'),
-    coAskForm: document.getElementById('coAskForm'),
-    coAskInput: document.getElementById('coAskInput'),
     interviewBtn: document.getElementById('interviewBtn'),
     tourBtn: document.getElementById('tourBtn'),
     formView: document.getElementById('formView'),
     briefView: document.getElementById('briefView'),
     briefDoc: document.getElementById('briefDoc'),
     genBtn: document.getElementById('genBtn'),
+    draftBtn: document.getElementById('draftBtn'),
     copyBtn: document.getElementById('copyBtn'),
     pdfBtn: document.getElementById('pdfBtn'),
     resetBriefBtn: document.getElementById('resetBriefBtn'),
@@ -74,17 +50,21 @@
 
   const BRIEF_KEY = 'ltpbrief.brief';
   let data = load();
-  let current = 0;
   let onBrief = false;
   let editedBrief = null;
   try { editedBrief = localStorage.getItem(BRIEF_KEY) || null; } catch {}
-  let assistTimer = null;
-  let assistSeq = 0;              // guards against out-of-order responses
-  const assistCache = {};        // stepId -> last result
 
+  /* BRIEFS SAVED AGAINST THE SIX STEPS STILL OPEN. Half those fields no longer
+     exist and the ones that went were not trivial, so nothing is discarded —
+     see `js/migrate.js`. The brief is told once, rather than silently. */
+  let migrated = false;
   function load() {
-    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+    let raw;
+    try { raw = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
     catch { return {}; }
+    const out = Migrate.load(raw);
+    migrated = JSON.stringify(out) !== JSON.stringify(raw);
+    return out;
   }
   let saveTimer = null;
   function save() {
@@ -105,28 +85,30 @@
   }
 
   /* ---------- completion ---------- */
-  function stepFilled(step) {
-    let any = false;
-    step.groups.forEach(g => g.fields.forEach(f => {
-      if (f.type === 'assets') { if ((data.assets || []).some(r => r && r.name)) any = true; }
-      else if (f.type === 'docs') { if ((data.docs || []).length) any = true; }
-      else if (f.type === 'funnel') { if (liveStages().some(s => data[s.id] && String(data[s.id]).trim() !== '')) any = true; }
-      else if (f.type === 'pills') { const v = data[f.id]; if (Array.isArray(v) ? v.length : (v && String(v).trim())) any = true; }
-      else if (data[f.id] != null && String(data[f.id]).trim() !== '') any = true;
-    }));
-    return any;
+  function filled(id) {
+    const v = data[id];
+    if (Array.isArray(v)) return v.some(r => r && (typeof r === 'string' ? r.trim() : (r.name || r.url)));
+    if (v && typeof v === 'object') return v.low != null || v.high != null;
+    return v != null && String(v).trim() !== '';
   }
-  function completedCount() { return steps.filter(stepFilled).length; }
-
-  /* ---------- rail ---------- */
+  function sectionFilled(section) {
+    return section.fields.some(f => f.type !== 'dropzone' && filled(f.id));
+  }
+  function completedCount() { return SCHEMA.sections.filter(sectionFilled).length; }
+  /* ---------- rail ----------
+     It kept its place and changed its job. There are no steps to number, so it
+     lists the sections and says where you are in them; the meter above it
+     counts what the planning team will chase rather than what is left to do.
+     Nothing here blocks anything — see `chased()` in the schema. */
   function renderRail() {
     el.steps.innerHTML = '';
-    steps.forEach((s, i) => {
+    SCHEMA.sections.forEach(s => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.className = 'step' + (i === current && !onBrief ? ' active' : '') + ((i !== current || onBrief) && stepFilled(s) ? ' done' : '');
-      b.innerHTML = `<span class="num">${(i === current && !onBrief) || !stepFilled(s) ? (i + 1) : '✓'}</span> ${s.name}`;
-      b.addEventListener('click', () => goTo(i));
+      b.dataset.sec = s.id;
+      b.className = 'step' + (sectionFilled(s) ? ' done' : '');
+      b.innerHTML = `<span class="dot" aria-hidden="true"></span> ${escapeHtml(s.title)}`;
+      b.addEventListener('click', () => goTo(s.id));
       el.steps.appendChild(b);
     });
 
@@ -146,8 +128,7 @@
     el.steps.appendChild(brief);
 
     /* Set apart from the navigation by a gap, because it is not navigation —
-       it is the one control here that destroys work, and it should not sit
-       flush against the thing you click to read your brief. */
+       it is the one control here that destroys work. */
     const nuke = document.createElement('button');
     nuke.type = 'button';
     nuke.className = 'nuke-pill';
@@ -156,12 +137,26 @@
     nuke.addEventListener('click', openNuke);
     el.steps.appendChild(nuke);
 
-    const pct = Math.round((completedCount() / steps.length) * 100);
-    el.progLabel.textContent = `Step ${current + 1} of ${steps.length} · ${pct}% complete`;
-    el.progFill.style.width = Math.max(pct, (current + 1) / steps.length * 100 * 0) + '%';
-    el.progFill.style.width = pct + '%';
+    renderChase();
   }
 
+  /* WHAT THE PLANNING TEAM WILL CHASE, counted and never enforced. A form that
+     refuses to submit gets a made-up budget instead of an honest gap, and an
+     invented number is far harder to catch later than an empty box. */
+  function renderChase() {
+    const done = SCHEMA.sections.filter(sectionFilled).length;
+    const open = SCHEMA.chased().filter(id => !filled(id));
+    const pct = Math.round((done / SCHEMA.sections.length) * 100);
+
+    el.progLabel.innerHTML = `${done} of ${SCHEMA.sections.length} sections answered` +
+      (open.length
+        ? ` · <button type="button" class="chase" id="chaseBtn">${open.length} the team will chase</button>`
+        : ` · <span class="chase-clear">nothing outstanding</span>`);
+    el.progFill.style.width = pct + '%';
+
+    const btn = document.getElementById('chaseBtn');
+    if (btn) btn.addEventListener('click', () => goToField(open[0]));
+  }
   /* ---------- field rendering ---------- */
   function makeLabel(text, help) {
     const label = document.createElement('label');
@@ -188,6 +183,121 @@
     sync();
     return holder;
   }
+  /* WHERE A SELECT'S OPTIONS COME FROM. Named rather than listed inline, so
+     the region/market/area lists have exactly one definition — the copy of
+     Strategy's own, in the schema. */
+  function optionsFor(f) {
+    if (f.source === 'regions') return SCHEMA.plan.regions.map(r => r.label);
+    if (f.source === 'areas') return SCHEMA.plan.areas.filter(a => !a.other).map(a => a.label);
+    if (f.source === 'markets') {
+      const r = SCHEMA.plan.regions.find(x => x.label === data.region);
+      /* No region chosen yet means every market, rather than none: a client who
+         scrolls to Market first should not meet an empty box with no
+         explanation of what is missing. */
+      return r ? r.markets : SCHEMA.plan.regions.flatMap(x => x.markets);
+    }
+    return f.options || [];
+  }
+
+  const dependents = id => SCHEMA.fields().filter(f => f.dependsOn === id);
+
+  /* The cycle is one value — "2027 H1" — entered as two controls, because a
+     year and a half are two decisions and a single text box gets "H1" with no
+     year in it often enough to matter. */
+  function cycleNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full std';
+    wrap.dataset.field = f.id;
+    wrap.appendChild(makeLabel(f.label, f.help));
+
+    const row = document.createElement('div');
+    row.className = 'cycle-row';
+
+    const cur = String(data[f.id] || '');
+    const year = document.createElement('input');
+    year.type = 'text'; year.id = 'f_' + f.id; year.className = 'cycle-year';
+    year.inputMode = 'numeric'; year.placeholder = String(new Date().getFullYear() + 1);
+    year.value = (cur.match(/(20\d{2})/) || [''])[0];
+
+    const half = document.createElement('select');
+    half.className = 'cycle-half';
+    [['', 'Full year'], ['H1', 'H1'], ['H2', 'H2']].forEach(([v, label]) => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = label;
+      half.appendChild(o);
+    });
+    half.value = /\bH1\b/.test(cur) ? 'H1' : /\bH2\b/.test(cur) ? 'H2' : '';
+
+    const sync = () => {
+      const y = year.value.trim();
+      /* A half with no year is not a cycle. Storing "H1" alone would put a plan
+         under a cycle Strategy cannot place, so nothing is stored until the
+         year is there. */
+      data[f.id] = y ? (half.value ? `${y} ${half.value}` : y) : '';
+      save(); markRail();
+    };
+    year.addEventListener('input', sync);
+    half.addEventListener('change', sync);
+
+    row.append(year, half);
+    wrap.appendChild(row);
+    return wrap;
+  }
+
+  /* Research arrives as a Drive link far more often than as a file. Nothing
+     here can open one — a Google Doc is auth-gated to our server and to the
+     model alike — so the row carries the client's own line about why it
+     matters, and that line is what the planning team goes on. */
+  function linksNode(f) {
+    const wrap = document.createElement('div');
+    wrap.className = 'field full std';
+    wrap.dataset.field = f.id;
+    wrap.appendChild(makeLabel(f.label, f.help));
+
+    const list = document.createElement('div');
+    list.className = 'links';
+    wrap.appendChild(list);
+
+    if (!Array.isArray(data[f.id])) data[f.id] = [];
+    const rows = data[f.id];
+
+    function draw() {
+      list.innerHTML = '';
+      rows.forEach((row, i) => {
+        const r = document.createElement('div');
+        r.className = 'link-row';
+
+        const mk = (key, ph, cls) => {
+          const inp = document.createElement('input');
+          inp.type = key === 'url' ? 'url' : 'text';
+          inp.className = cls; inp.placeholder = ph;
+          inp.value = row[key] || '';
+          inp.addEventListener('input', () => { row[key] = inp.value; save(); markRail(); });
+          return inp;
+        };
+
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'link-x';
+        del.setAttribute('aria-label', 'Remove this link');
+        del.textContent = '×';
+        del.addEventListener('click', () => { rows.splice(i, 1); save(); draw(); markRail(); });
+
+        r.append(mk('label', 'What it is', 'link-label'),
+                 mk('url', 'https://docs.google.com/…', 'link-url'),
+                 mk('why', 'Why it matters', 'link-why'), del);
+        list.appendChild(r);
+      });
+
+      const add = document.createElement('button');
+      add.type = 'button'; add.className = 'link-add';
+      add.textContent = '+ Add a link';
+      add.addEventListener('click', () => { rows.push({ label: '', url: '', why: '' }); save(); draw(); });
+      list.appendChild(add);
+    }
+    draw();
+    return wrap;
+  }
+
   function fieldNode(f) {
     const wrap = document.createElement('div');
     wrap.className = 'field' + (f.full ? ' full' : '');
@@ -195,7 +305,8 @@
 
     if (f.type === 'assets') { return assetsNode(f); }
     if (f.type === 'docs') { return docsNode(f); }
-    if (f.type === 'funnel') { return funnelNode(f); }
+    if (f.type === 'cycle') { return cycleNode(f); }
+    if (f.type === 'links') { return linksNode(f); }
     if (f.type === 'pills') { return pillsNode(f); }
     if (f.type === 'dropzone') { return dropzoneNode(f); }
     if (f.type === 'budget') { return budgetNode(f); }
@@ -218,17 +329,8 @@
         opt.value = val; opt.textContent = val;
         parent.appendChild(opt);
       };
-      if (f.optgroups) {
-        f.optgroups.forEach(g => {
-          const og = document.createElement('optgroup');
-          og.label = g.label;
-          g.options.forEach(o => addOpt(o, og));
-          input.appendChild(og);
-        });
-      } else {
-        (f.options || []).forEach(o => addOpt(o, input));
-      }
-      if (f.otherField) addOpt('Other', input);
+      optionsFor(f).forEach(o => addOpt(o, input));
+      if (f.otherId) addOpt('Other', input);
     } else {
       input = document.createElement('input');
       input.type = 'text';
@@ -237,23 +339,32 @@
     input.placeholder = f.placeholder || '';
     if (data[f.id] != null) input.value = data[f.id];
 
-    input.addEventListener('input', () => { data[f.id] = input.value; save(); scheduleAssist(); markRail(); });
-    if (f.type === 'select') input.addEventListener('change', () => runAssist());
-    input.addEventListener('blur', () => runAssist());
+    input.addEventListener('input', () => {
+      data[f.id] = input.value;
+      save(); markRail();
+      /* A market chosen under one region is not a market under another, so the
+         answer is cleared with the list rather than left pointing at a country
+         that is no longer on it. */
+      if (dependents(f.id).length) {
+        dependents(f.id).forEach(d => { delete data[d.id]; delete data[d.otherId]; });
+        save();
+        renderPage();
+      }
+    });
     if (f.type === 'select') wrap.appendChild(input);
     else wrap.appendChild(wrapClear(input, f.type === 'textarea'));
 
     // "Other" free-text companion for selects that allow it.
-    if (f.type === 'select' && f.otherField) {
+    if (f.type === 'select' && f.otherId) {
       const other = document.createElement('input');
       other.type = 'text';
       other.id = 'f_' + f.id + 'Other';
       other.placeholder = f.otherPlaceholder || 'Describe it in your own words';
-      if (data[f.id + 'Other'] != null) other.value = data[f.id + 'Other'];
+      other.id = 'f_' + f.otherId;
+      if (data[f.otherId] != null) other.value = data[f.otherId];
       const syncOther = () => { other.style.display = input.value === 'Other' ? 'block' : 'none'; };
       syncOther();
-      other.addEventListener('input', () => { data[f.id + 'Other'] = other.value; save(); scheduleAssist(); markRail(); });
-      other.addEventListener('blur', () => runAssist());
+      other.addEventListener('input', () => { data[f.otherId] = other.value; save(); markRail(); });
       input.addEventListener('change', syncOther);
       wrap.appendChild(other);
     }
@@ -264,7 +375,6 @@
       b.type = 'button'; b.className = 'ai-mini';
       b.setAttribute('data-tip', 'Get 2–3 candidate audiences with a rationale for each');
       b.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest audiences';
-      b.addEventListener('click', () => openAudiences(f.id));
       wrap.appendChild(b);
     }
     // Optional reference link that opens in an in-app viewer.
@@ -283,10 +393,20 @@
     wrap.className = 'field full';
     wrap.appendChild(makeLabel(f.label, f.help));
     const MIN = 1, MAX = 1000, STEP = 5;
+    /* STORED AS A PAIR OF NUMBERS, in millions — not as the string on screen.
+       The handoff block multiplies them out, and a block whose budget reads
+       "$4M – $6M" has moved the parsing problem rather than solved it. Briefs
+       saved before this kept a string, so that shape is still read. */
     let lo = 40, hi = 55;
-    const m = String(data.budget || '').match(/(\d+)\s*M[^\d]+(\d+)\s*M/i);
-    if (m) { lo = +m[1]; hi = +m[2]; }
-    else { const one = String(data.budget || '').match(/(\d+)\s*M/i); if (one) { lo = hi = +one[1]; } }
+    const saved = data.budget;
+    if (saved && typeof saved === 'object') {
+      if (saved.low != null) lo = +saved.low;
+      if (saved.high != null) hi = +saved.high;
+    } else {
+      const m = String(saved || '').match(/(\d+)\s*M[^\d]+(\d+)\s*M/i);
+      if (m) { lo = +m[1]; hi = +m[2]; }
+      else { const one = String(saved || '').match(/(\d+)\s*M/i); if (one) { lo = hi = +one[1]; } }
+    }
     lo = Math.max(MIN, Math.min(lo, MAX)); hi = Math.max(lo, Math.min(hi, MAX));
 
     /* Two handles on one track is only obvious once you have already worked out
@@ -336,12 +456,10 @@
       read.textContent = a === b
         ? fmt(a) + ' working media'
         : 'From ' + fmt(a) + ' to ' + fmt(b) + ' working media';
-      if (persist !== false) { data.budget = a === b ? fmt(a) : fmt(a) + ' – ' + fmt(b); save(); scheduleAssist(); markRail(); }
+      if (persist !== false) { data.budget = { low: a, high: b }; save(); markRail(); }
     }
     mn.addEventListener('input', () => update());
     mx.addEventListener('input', () => update());
-    mn.addEventListener('change', () => runAssist());
-    mx.addEventListener('change', () => runAssist());
     update(false);
     wrap.append(dr, ends, read, hint);
     return wrap;
@@ -368,7 +486,7 @@
     const queue = Array.from(files || []);
     if (!queue.length) return;
     let pending = queue.length;
-    const done = () => { if (--pending === 0) { save(); renderStep(); } };
+    const done = () => { if (--pending === 0) { save(); renderPage(); } };
     queue.forEach(file => {
       const entry = { name: file.name, size: file.size, type: file.type || '', note: '', text: '' };
       if (!isTextual(file)) { data.docs.push(entry); done(); return; }
@@ -395,13 +513,13 @@
   async function digestDoc(entry) {
     if (!entry || !entry.text || entry.digest || entry.digesting) return;
     entry.digesting = true;
-    renderStep();
+    renderPage();
     try {
       const r = await Gemini.digest(entry.name, entry.text);
       entry.digest = (r && r.digest) || '';
     } catch { /* listed but unread; the brief still carries the name */ }
     entry.digesting = false;
-    save(); renderStep(); scheduleAssist();
+    save(); renderPage();
   }
 
   function docsNode(f) {
@@ -452,7 +570,7 @@
       const del = document.createElement('button');
       del.type = 'button'; del.className = 'doc-x'; del.setAttribute('aria-label', 'Remove ' + d.name);
       del.textContent = '×';
-      del.addEventListener('click', () => { data.docs.splice(idx, 1); save(); renderStep(); });
+      del.addEventListener('click', () => { data.docs.splice(idx, 1); save(); renderPage(); });
       row.append(meta, note, del);
       list.appendChild(row);
     });
@@ -517,7 +635,7 @@
       filled++;
     }
     if (filled) undoState = snapshot;
-    save(); renderStep();
+    save(); renderPage();
     return { filled, summary: r.summary };
   }
   async function ingestFile(file, status) {
@@ -546,7 +664,7 @@
       const i = sel.indexOf(val);
       if (i >= 0) { sel.splice(i, 1); pill.classList.remove('on'); }
       else { sel.push(val); pill.classList.add('on'); }
-      data[f.id] = sel; save(); markRail(); scheduleAssist(); syncOther();
+      data[f.id] = sel; save(); markRail(); syncOther();
     }
     function makePill(val) {
       const p = document.createElement('button');
@@ -591,8 +709,7 @@
         other.placeholder = g.otherPlaceholder || 'Describe it in your own words';
         other.setAttribute('aria-label', g.label + ' — other');
         if (data[g.otherId] != null) other.value = data[g.otherId];
-        other.addEventListener('input', () => { data[g.otherId] = other.value; save(); scheduleAssist(); markRail(); });
-        other.addEventListener('blur', () => runAssist());
+        other.addEventListener('input', () => { data[g.otherId] = other.value; save(); markRail(); });
         const holder = wrapClear(other, false);
         holder.classList.add('other-holder');
         set.appendChild(holder);
@@ -626,261 +743,15 @@
       const other = document.createElement('input');
       other.type = 'text'; other.id = 'f_' + f.id + 'Other';
       other.placeholder = f.otherPlaceholder || 'Describe it in your own words';
-      if (data[f.id + 'Other'] != null) other.value = data[f.id + 'Other'];
-      other.addEventListener('input', () => { data[f.id + 'Other'] = other.value; save(); scheduleAssist(); markRail(); });
-      other.addEventListener('blur', () => runAssist());
+      other.id = 'f_' + f.otherId;
+      if (data[f.otherId] != null) other.value = data[f.otherId];
+      other.addEventListener('input', () => { data[f.id + 'Other'] = other.value; save(); markRail(); });
       const otherHolder = wrapClear(other, false);
       wrap.appendChild(otherHolder);
       const legacy = () => { otherHolder.style.display = sel.includes('Other') ? '' : 'none'; };
       syncs.push(legacy);
       legacy();
     }
-    return wrap;
-  }
-
-  function funnelNode(f) {
-    const wrap = document.createElement('div');
-    wrap.className = 'field full';
-
-    const suggest = document.createElement('button');
-    suggest.type = 'button'; suggest.className = 'ai-mini';
-    suggest.setAttribute('data-tip', 'Gemini proposes a measurable KPI for each funnel stage');
-    suggest.innerHTML = '<svg class="gstar"><use href="#star"/></svg> Suggest full-funnel KPIs';
-    suggest.addEventListener('click', async () => {
-      suggest.disabled = true;
-      const orig = suggest.innerHTML;
-      suggest.innerHTML = '<svg class="gstar sp"><use href="#star"/></svg> Thinking…';
-      try {
-        // the model is told which stages exist, so a renamed or added one is filled too
-        const r = await Gemini.funnelKpis(data, liveStages().map(s => ({ id: s.id, label: s.label })));
-        pushUndo();
-        const byId = {};
-        (r && Array.isArray(r.kpis) ? r.kpis : []).forEach(k => { if (k && k.id) byId[k.id] = k.kpi; });
-        liveStages().forEach(st => {
-          const v = byId[st.id];
-          if (v) { data[st.id] = v; const inp = document.getElementById('f_' + st.id); if (inp) inp.value = v; }
-        });
-        save(); markRail(); runAssist(); syncReset(); toastAction('Funnel KPIs added', 'Undo', doUndo);
-      } catch (e) { toast(e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not suggest just now.'); }
-      suggest.disabled = false; suggest.innerHTML = orig;
-    });
-    /* Reset clears all five stages at once. It goes through the same undo as
-       the AI actions do — five KPIs are a few minutes of thinking, and a
-       button that destroys them with no way back is a trap. It also disables
-       itself when there is nothing to clear, so it never lies about what it
-       will do. */
-    const reset = document.createElement('button');
-    reset.type = 'button'; reset.className = 'mini-reset';
-    reset.textContent = 'Reset funnel';
-    reset.setAttribute('data-tip', 'Clear every stage — undo is offered after');
-    const anyFilled = () => liveStages().some(st => data[st.id] != null && String(data[st.id]).trim() !== '');
-    const syncReset = () => { reset.disabled = !anyFilled(); };
-    reset.addEventListener('click', () => {
-      if (!anyFilled()) return;
-      pushUndo();
-      liveStages().forEach(st => {
-        data[st.id] = '';
-        const inp = document.getElementById('f_' + st.id);
-        // the input event is what tells each field's own × to hide again
-        if (inp) { inp.value = ''; inp.dispatchEvent(new Event('input', { bubbles: true })); }
-      });
-      save(); markRail(); runAssist(); syncReset();
-      toastAction('Funnel cleared', 'Undo', () => { doUndo(); });
-    });
-
-    const actions = document.createElement('div');
-    actions.className = 'funnel-actions';
-    /* The row is space-between, so the left side is grouped — a bare third
-       child would strand Reset in the middle. The funnel has no label of its
-       own (the group heading does that job), so its description hangs off an
-       ⓘ here, the same affordance as every other field's. */
-    const left = document.createElement('div');
-    left.className = 'funnel-actions-left';
-    left.appendChild(suggest);
-    if (f.help) {
-      const i = document.createElement('span');
-      i.className = 'info'; i.textContent = 'ⓘ'; i.tabIndex = 0;
-      i.setAttribute('data-tip', f.help);
-      left.appendChild(i);
-    }
-    actions.append(left, reset);
-    wrap.appendChild(actions);
-
-    const funnel = document.createElement('div');
-    funnel.className = 'funnel';
-
-    /* Editing the list re-renders the whole field rather than patching tiers:
-       every width depends on how many stages there are, so a local edit is a
-       full relayout anyway. */
-    const redraw = () => {
-      mapFunnelFields();
-      const fresh = funnelNode(f);
-      wrap.replaceWith(fresh);
-      save(); markRail(); runAssist();
-    };
-    /* Committing to data.funnelStages is what turns the defaults into the
-       user's own list — before the first edit there is nothing stored, so a
-       schema change would still reach anyone who never touched the funnel. */
-    const commitStages = next => { data.funnelStages = next.map(s => Object.assign({}, s)); };
-
-    const stages = liveStages();
-    const tierEls = [];
-
-    function moveStage(from, to) {
-      if (from === to || to < 0 || to >= stages.length) return;
-      pushUndo();
-      const next = liveStages().map(s => Object.assign({}, s));
-      const [moved] = next.splice(from, 1);
-      next.splice(to, 0, moved);
-      commitStages(next);
-      redraw();
-      toastAction('Stage moved', 'Undo', doUndo);
-    }
-
-    /* Reordering is what the funnel shape is for, so the shape has to answer
-       while you drag rather than after you drop: the lifted tier takes the
-       width of the slot it is currently over, and the tiers it displaces slide
-       out of the way. Pointer events rather than HTML5 drag-and-drop, because
-       drag-and-drop does not exist on touch. */
-    function startDrag(ev, from) {
-      if (ev.button != null && ev.button !== 0) return;
-      if (tierEls.length < 2) return;
-      ev.preventDefault();
-      hideTip();   // the grip's own tip would otherwise ride along over the tiers
-      const n = tierEls.length;
-      const rects = tierEls.map(el => el.getBoundingClientRect());
-      const gap = n > 1 ? Math.max(0, rects[1].top - rects[0].bottom) : 0;
-      const stepPx = rects[0].height + gap;
-      const startY = ev.clientY;
-      const dragEl = tierEls[from];
-      let to = from;
-      dragEl.classList.add('dragging');
-      document.body.classList.add('dragging-stage');
-
-      const onMove = e => {
-        const dy = e.clientY - startY;
-        dragEl.style.transform = 'translateY(' + dy + 'px)';
-        const target = Math.max(0, Math.min(n - 1, from + Math.round(dy / stepPx)));
-        if (target === to) return;
-        to = target;
-        dragEl.style.setProperty('--w', tierWidth(to, n) + '%');
-        tierEls.forEach((el, j) => {
-          if (j === from) return;
-          let shift = 0;
-          if (from < to && j > from && j <= to) shift = -stepPx;
-          else if (from > to && j >= to && j < from) shift = stepPx;
-          el.style.transform = shift ? 'translateY(' + shift + 'px)' : '';
-        });
-      };
-      const onUp = () => {
-        document.removeEventListener('pointermove', onMove);
-        document.removeEventListener('pointerup', onUp);
-        document.removeEventListener('pointercancel', onUp);
-        document.body.classList.remove('dragging-stage');
-        dragEl.classList.remove('dragging');
-        tierEls.forEach(el => { el.style.transform = ''; });
-        if (to !== from) moveStage(from, to);
-      };
-      document.addEventListener('pointermove', onMove);
-      document.addEventListener('pointerup', onUp);
-      document.addEventListener('pointercancel', onUp);
-    }
-
-    stages.forEach((st, i) => {
-      const tier = document.createElement('div');
-      tier.className = 'ftier';
-      tier.style.setProperty('--w', tierWidth(i, stages.length) + '%');
-      tier.style.setProperty('--c', st.color || STAGE_COLORS[i % STAGE_COLORS.length]);
-      tierEls.push(tier);
-
-      const grip = document.createElement('button');
-      grip.type = 'button'; grip.className = 'fstage-grip';
-      grip.innerHTML = '<span class="gdots">&#8942;&#8942;</span><span class="glabel">Drag</span>';
-      grip.disabled = stages.length < 2;
-      grip.setAttribute('aria-label', 'Reorder ' + st.label);
-      grip.setAttribute('data-tip', 'Drag to reorder — the funnel resizes to match');
-      grip.addEventListener('pointerdown', e => startDrag(e, i));
-      // the same move without a pointer, for keyboards and screen readers
-      grip.addEventListener('keydown', e => {
-        if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-        e.preventDefault();
-        moveStage(i, i + (e.key === 'ArrowUp' ? -1 : 1));
-      });
-
-      /* The stage name is the thing being customised, so it is an input, not a
-         label. It looks like text until you click it. */
-      const lab = document.createElement('input');
-      lab.className = 'fstage fstage-edit';
-      lab.type = 'text';
-      lab.value = st.label;
-      lab.setAttribute('aria-label', 'Stage name');
-      lab.title = 'Rename this stage';
-      lab.addEventListener('input', () => {
-        const next = liveStages().map(s => Object.assign({}, s));
-        next[i].label = lab.value;
-        commitStages(next);
-        save();
-      });
-      lab.addEventListener('blur', () => {
-        // an unnamed stage cannot be read in the brief, so it never stays empty
-        if (!lab.value.trim()) { lab.value = st.label || 'Stage ' + (i + 1); lab.dispatchEvent(new Event('input')); }
-        runAssist();
-      });
-
-      const input = document.createElement('input');
-      input.type = 'text';
-      input.id = 'f_' + st.id;
-      input.placeholder = st.placeholder || 'The measure for this stage';
-      if (data[st.id] != null) input.value = data[st.id];
-      input.addEventListener('input', () => { data[st.id] = input.value; save(); scheduleAssist(); markRail(); syncReset(); });
-      input.addEventListener('blur', () => runAssist());
-
-      const rm = document.createElement('button');
-      rm.type = 'button'; rm.className = 'fstage-rm';
-      rm.innerHTML = '&times;';
-      rm.setAttribute('aria-label', 'Remove ' + st.label);
-      rm.setAttribute('data-tip', 'Remove this stage');
-      /* A funnel of one is not a funnel, and the last stage taking its KPI with
-         it silently would be a trap — so undo is offered, as with Reset. */
-      rm.disabled = stages.length <= 1;
-      rm.addEventListener('click', () => {
-        if (liveStages().length <= 1) return;
-        pushUndo();
-        const next = liveStages().filter((_, j) => j !== i).map(s => Object.assign({}, s));
-        commitStages(next);
-        delete data[st.id];
-        redraw();
-        toastAction('Stage removed', 'Undo', doUndo);
-      });
-
-      tier.append(grip, lab, wrapClear(input, false), rm);
-      funnel.appendChild(tier);
-    });
-    wrap.appendChild(funnel);
-
-    const add = document.createElement('button');
-    add.type = 'button'; add.className = 'fstage-add';
-    add.textContent = '+ Add a stage';
-    add.setAttribute('data-tip', 'Add a stage to the funnel — name it whatever the plan calls it');
-    add.addEventListener('click', () => {
-      pushUndo();
-      const cur = liveStages();
-      // ids must be unique and stable: they key the answer in `data` and in the brief
-      let n = cur.length + 1, id;
-      do { id = 'kpiStage' + n++; } while (cur.some(s => s.id === id));
-      const next = cur.map(s => Object.assign({}, s));
-      next.push({ id, label: 'New stage', color: STAGE_COLORS[cur.length % STAGE_COLORS.length], placeholder: 'The measure for this stage' });
-      commitStages(next);
-      data[id] = '';
-      redraw();
-      // land the cursor in the new name, since naming it is the next thing to do
-      const fresh = document.querySelectorAll('.funnel .ftier .fstage-edit');
-      const last = fresh[fresh.length - 1];
-      if (last) { last.focus(); last.select(); }
-    });
-    wrap.appendChild(add);
-
-    syncReset();
     return wrap;
   }
 
@@ -893,7 +764,8 @@
     list.className = 'assets';
     wrap.appendChild(list);
 
-    if (!Array.isArray(data.assets) || !data.assets.length) data.assets = [{ name: '', status: '', ready: '' }];
+    const blankRow = () => ({ name: '', type: '', count: '', status: '', ready: '' });
+    if (!Array.isArray(data.assets) || !data.assets.length) data.assets = [blankRow()];
 
     function renderRows() {
       list.innerHTML = '';
@@ -903,8 +775,7 @@
 
         const name = document.createElement('input');
         name.type = 'text'; name.placeholder = 'Asset (e.g. Hero film :30)'; name.value = row.name || '';
-        name.addEventListener('input', () => { row.name = name.value; save(); scheduleAssist(); markRail(); });
-        name.addEventListener('blur', () => runAssist());
+        name.addEventListener('input', () => { row.name = name.value; save(); markRail(); });
 
         const status = document.createElement('select');
         const blank = document.createElement('option'); blank.value = ''; blank.textContent = 'Status…';
@@ -914,22 +785,39 @@
           if (row.status === s) o.selected = true;
           status.appendChild(o);
         });
-        status.addEventListener('change', () => { row.status = status.value; save(); runAssist(); markRail(); });
+        status.addEventListener('change', () => { row.status = status.value; save(); markRail(); });
+
+        /* WHAT IT IS AND HOW MANY. A plan built against "three films" and one
+           built against "three social cutdowns" are not the same plan, and the
+           count is what says whether a channel can be run at all. */
+        const type = document.createElement('select');
+        const noType = document.createElement('option'); noType.value = ''; noType.textContent = 'Type…';
+        type.appendChild(noType);
+        SCHEMA.assetTypes.forEach(t => {
+          const o = document.createElement('option'); o.value = t; o.textContent = t;
+          if (row.type === t) o.selected = true;
+          type.appendChild(o);
+        });
+        type.addEventListener('change', () => { row.type = type.value; save(); markRail(); });
+
+        const count = document.createElement('input');
+        count.type = 'text'; count.inputMode = 'numeric'; count.className = 'asset-count';
+        count.placeholder = 'How many'; count.value = row.count || '';
+        count.addEventListener('input', () => { row.count = count.value; save(); });
 
         const ready = document.createElement('input');
         ready.type = 'text'; ready.placeholder = 'Ready when'; ready.value = row.ready || '';
-        ready.addEventListener('input', () => { row.ready = ready.value; save(); scheduleAssist(); });
-        ready.addEventListener('blur', () => runAssist());
+        ready.addEventListener('input', () => { row.ready = ready.value; save(); });
 
         const rm = document.createElement('button');
         rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×'; rm.title = 'Remove';
         rm.addEventListener('click', () => {
           data.assets.splice(idx, 1);
-          if (!data.assets.length) data.assets = [{ name: '', status: '', ready: '' }];
+          if (!data.assets.length) data.assets = [blankRow()];
           save(); renderRows(); markRail();
         });
 
-        r.append(name, status, ready, rm);
+        r.append(name, type, count, status, ready, rm);
         list.appendChild(r);
       });
     }
@@ -937,189 +825,124 @@
 
     const add = document.createElement('button');
     add.type = 'button'; add.className = 'add-asset'; add.textContent = '+ Add asset';
-    add.addEventListener('click', () => { data.assets.push({ name: '', status: '', ready: '' }); save(); renderRows(); });
+    add.addEventListener('click', () => { data.assets.push(blankRow()); save(); renderRows(); });
     wrap.appendChild(add);
     return wrap;
   }
 
-  /* ---------- step rendering ---------- */
-  function renderStep() {
-    const s = steps[current];
-    el.stepTitle.textContent = s.title;
-    el.stepSub.textContent = s.sub;
+  /* ---------- page rendering ----------
+     Every section, once, in schema order. There is no active step to keep and
+     nothing to re-render on navigation — moving around the page is scrolling,
+     so the only thing that changes as you type is the rail's readiness. */
+  function renderPage() {
     el.fields.innerHTML = '';
-    s.groups.forEach(g => {
-      if (g.title) {
-        const h = document.createElement('div');
-        h.className = 'glabel';
-        h.textContent = g.title;
-        el.fields.appendChild(h);
+    SCHEMA.sections.forEach((s, i) => {
+      const sec = document.createElement('section');
+      sec.className = 'sec';
+      sec.id = 'sec_' + s.id;
+
+      const head = document.createElement('header');
+      head.className = 'sechead';
+      head.innerHTML = `<h2><span class="secnum">${i + 1}</span> ${escapeHtml(s.title)}</h2>` +
+        (s.sub ? `<p>${escapeHtml(s.sub)}</p>` : '');
+      sec.appendChild(head);
+
+      /* The dropzone is the page's own affordance rather than one of the
+         plan's fields, so it renders bare, above the card. */
+      const bare = s.fields.filter(f => f.type === 'dropzone');
+      const rest = s.fields.filter(f => f.type !== 'dropzone');
+      bare.forEach(f => { const n = fieldNode(f); n.classList.add('card-none'); sec.appendChild(n); });
+      if (rest.length) {
+        const card = document.createElement('div');
+        card.className = 'card';
+        rest.forEach(f => card.appendChild(fieldNode(f)));
+        sec.appendChild(card);
       }
-      // Bare full-bleed field types (dropzone) render without a card chrome.
-      const bare = g.fields.length === 1 && g.fields[0].type === 'dropzone';
-      if (bare) { const n = fieldNode(g.fields[0]); n.classList.add('card-none'); el.fields.appendChild(n); return; }
-      const card = document.createElement('div');
-      card.className = 'card';
-      g.fields.forEach(f => card.appendChild(fieldNode(f)));
-      el.fields.appendChild(card);
+      el.fields.appendChild(sec);
     });
-    el.backBtn.disabled = current === 0;
-    el.nextBtn.textContent = current === steps.length - 1 ? 'Finish & review brief →' : 'Continue →';
     renderRail();
-    renderAssist(assistCache[s.id]);   // show cached, then refresh
-    runAssist();
+    renderCoPilot();
+    watchSections();
+  }
+
+  /* Which section the reader is in, for the rail's dot. Cheap and passive —
+     an observer rather than a scroll handler, so a long page does no work
+     between sections crossing the line. */
+  let secObserver = null;
+  function watchSections() {
+    if (secObserver) secObserver.disconnect();
+    if (typeof IntersectionObserver !== 'function') return;
+    secObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (!e.isIntersecting) return;
+        const id = e.target.id.replace(/^sec_/, '');
+        document.querySelectorAll('.step').forEach(b =>
+          b.classList.toggle('here', b.dataset.sec === id));
+      });
+    }, { rootMargin: '-45% 0px -45% 0px' });
+    SCHEMA.sections.forEach(s => {
+      const n = document.getElementById('sec_' + s.id);
+      if (n) secObserver.observe(n);
+    });
+  }
+
+  function goTo(id) {
+    const n = document.getElementById('sec_' + id);
+    if (!n) return;
+    showForm();
+    n.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function markRail() { renderRail(); }
-
-  function goTo(i) {
-    if (i < 0 || i >= steps.length) return;
-    current = i;
-    showForm();
-    renderStep();
-  }
-
-  /* ---------- co-pilot ---------- */
+  /* ---------- co-pilot ----------
+     Two controls where there were six. Live per-field review came off with the
+     wizard: it existed to catch a contradiction with a step you could no longer
+     see, and on one page you can see it. What is left is the pair that earn
+     their cost — being interviewed instead of facing the form, and the draft
+     that turns answers into the brief a strategist reads. */
   function setStatus(state) {
     el.coStatus.className = 'live ' + state;
-    el.coStatus.textContent = state === 'thinking' ? 'reviewing' : state === 'idle' ? 'ready' : 'watching';
+    el.coStatus.textContent = state === 'thinking' ? 'working' : 'ready';
   }
 
-  function scheduleAssist() {
-    clearTimeout(assistTimer);
-    assistTimer = setTimeout(runAssist, 700);
+  function renderCoPilot() {
+    el.coBody.innerHTML =
+      `<div class="co-empty">Fill the page in any order — it saves as you go.` +
+      ` <strong>Interview me</strong> asks for it a question at a time instead,` +
+      ` and <strong>Draft the brief</strong> turns your answers into the document` +
+      ` the planning team reads.</div>`;
   }
-
-  async function runAssist() {
-    clearTimeout(assistTimer);
-    const s = steps[current];
-    if (!stepFilled(s)) { renderAssist(null); setStatus('idle'); return; }
-    const seq = ++assistSeq;
-    setStatus('thinking');
-    try {
-      const here = {};
-      s.groups.forEach(g => g.fields.forEach(f => {
-        if (f.type === 'funnel') { liveStages().forEach(st => { if (data[st.id]) here[st.id] = data[st.id]; }); return; }
-        if (f.type === 'dropzone' || f.type === 'docs') return;
-        if (data[f.id] != null && data[f.id] !== '') here[f.id] = data[f.id];
-        (f.optgroups || []).forEach(og => { if (og.otherId && data[og.otherId]) here[og.otherId] = data[og.otherId]; });
-      }));
-      const res = await Gemini.assist(s.id, data, here);
-      if (seq !== assistSeq) return;          // superseded
-      assistCache[s.id] = res;
-      renderAssist(res);
-      setStatus('watching');
-    } catch (err) {
-      if (seq !== assistSeq) return;
-      renderAssistError(err);
-      setStatus('idle');
-    }
-  }
-
-  function renderAssist(res) {
-    el.coBody.innerHTML = '';
-    if (!res) {
-      el.coBody.innerHTML = `<div class="co-empty">Start filling in this step and I'll flag anything that clashes with earlier answers — and offer suggestions to speed you up.</div>`;
-      return;
-    }
-    if (res.ack) {
-      const a = document.createElement('div');
-      a.className = 'ack';
-      a.innerHTML = '<svg class="gstar"><use href="#star"/></svg> ' + escapeHtml(res.ack);
-      el.coBody.appendChild(a);
-    }
-    const checks = res.checks || [];
-    const suggestions = res.suggestions || [];
-    if (!checks.length && !suggestions.length) {
-      const ok = document.createElement('div');
-      ok.className = 'assist fyi';
-      ok.innerHTML = `<div class="hd"><svg class="gstar"><use href="#star"/></svg> Looks consistent</div>Nothing clashes with your earlier answers. Keep going.`;
-      el.coBody.appendChild(ok);
-      return;
-    }
-    checks.forEach(c => {
-      const sev = ['tension', 'gap', 'fyi'].includes(c.severity) ? c.severity : 'fyi';
-      const icon = sev === 'fyi' ? '<svg class="gstar"><use href="#star"/></svg>' : '⚠';
-      const div = document.createElement('div');
-      div.className = 'assist ' + sev;
-      div.innerHTML = `<div class="hd">${icon} ${escapeHtml(c.title || 'Check')}</div>${escapeHtml(c.body || '')}`;
-      if (c.field && FIELD_STEP[c.field] != null) {
-        div.classList.add('clickable');
-        div.innerHTML += '<div class="assist-go">Go to field →</div>';
-        div.addEventListener('click', () => goToField(c.field));
-      }
-      el.coBody.appendChild(div);
-    });
-    suggestions.forEach(sg => {
-      if (!sg || !sg.fieldId || sg.value == null) return;
-      const div = document.createElement('div');
-      div.className = 'assist sugg';
-      div.innerHTML = `<div class="hd"><svg class="gstar"><use href="#star"/></svg> ${escapeHtml(sg.label || 'Suggestion')}</div>` +
-        escapeHtml(sg.rationale || sg.value);
-      const act = document.createElement('div');
-      act.className = 'miniact';
-      const fill = document.createElement('span');
-      fill.className = 'b fill'; fill.textContent = 'Insert';
-      fill.addEventListener('click', () => applySuggestion(sg));
-      act.appendChild(fill);
-      div.appendChild(act);
-      el.coBody.appendChild(div);
-    });
-  }
-
-  function renderAssistError(err) {
-    const needsKey = err.status === 503 || err.status === 500;
-    el.coBody.innerHTML = `<div class="co-empty">${needsKey
-      ? 'Assist is offline — the brief still saves and exports normally. (Set the Gemini key to enable live review.)'
-      : 'Could not reach the assistant just now. Your answers are safe; try again in a moment.'}</div>`;
-  }
-
-  function applySuggestion(sg) {
-    pushUndo();
-    data[sg.fieldId] = sg.value;
-    save();
-    const input = document.getElementById('f_' + sg.fieldId);
-    if (input) {
-      input.value = sg.value;
-      const field = input.closest('.field');
-      if (field) { field.classList.add('flag'); setTimeout(() => field.classList.remove('flag'), 900); }
-    }
-    markRail();
-    runAssist();
-    toastAction('Inserted', 'Undo', doUndo);
-  }
-
   /* ---------- brief view ---------- */
   function showForm() { el.formView.hidden = false; el.briefView.hidden = true; onBrief = false; renderRail(); }
   function showBrief() {
     el.formView.hidden = true; el.briefView.hidden = false;
     el.briefDoc.innerHTML = editedBrief || Brief.toHtml(Brief.toMarkdown(data));
-    injectFunnel(el.briefDoc);
     decorateSections();
-    renderReadiness();
+    renderHandoffReadiness();
     onBrief = true; renderRail();
   }
+  /* WHAT THE PLANNING TEAM WILL CHASE, on the brief itself. The list is the
+     schema's, not a second copy written out here — a hand-kept list is how a
+     field gets added to the page and quietly never chased. */
   function validateBrief() {
-    const issues = [];
-    [['productArea', 'Product Area'], ['market', 'Market'], ['budget', 'Budget']].forEach(([id, label]) => {
-      if (!(data[id] && String(data[id]).trim())) issues.push({ label, field: id });
-    });
-    const gd = data.growthDriver;
-    if (!(Array.isArray(gd) ? gd.length : !!gd)) issues.push({ label: 'Source of brand growth', field: 'growthDriver' });
-    if (!(data.sourceAudience && data.sourceAudience.trim())) issues.push({ label: 'Growth audience', field: 'sourceAudience' });
-    liveStages().forEach(s => { if (!(data[s.id] && String(data[s.id]).trim())) issues.push({ label: s.label + ' KPI', field: s.id }); });
-    return issues;
+    return SCHEMA.chased()
+      .filter(id => !filled(id))
+      .map(id => ({ label: LABEL[id] || id, field: id }));
   }
-  function renderReadiness() {
+  function renderHandoffReadiness() {
     const box = el.readiness;
     const issues = validateBrief();
     if (!issues.length) {
       box.className = 'readiness ok';
-      box.innerHTML = '<span class="rd-lead">✓ Ready to hand off</span> — every core section and full-funnel KPI is filled.';
+      box.innerHTML = '<span class="rd-lead">✓ Ready to hand off</span> — everything the planning team chases is answered.';
       return;
     }
     box.className = 'readiness warn';
-    box.innerHTML = '<span class="rd-lead">' + issues.length + ' to finish before hand-off:</span>';
+    /* Worded as what happens next rather than as a failure. These are gaps the
+       planning team will come back about, not errors — and a client who cannot
+       answer one yet should hand the brief over saying so. */
+    box.innerHTML = '<span class="rd-lead">' + issues.length +
+      (issues.length === 1 ? ' answer' : ' answers') + ' the planning team will chase:</span>';
     const row = document.createElement('span');
     row.className = 'readiness-chips';
     issues.forEach(is => {
@@ -1129,30 +952,6 @@
       row.appendChild(c);
     });
     box.appendChild(row);
-  }
-  // Replace the Full Funnel section body with the funnel pyramid visual (reflecting current data).
-  function injectFunnel(container) {
-    const stages = liveStages();
-    if (!stages.length) return;
-    let target = null;
-    container.querySelectorAll('h2').forEach(h => { if ((h.textContent || '').trim().toLowerCase().indexOf('full funnel') === 0) target = h; });
-    if (!target) return;
-    let n = target.nextSibling;
-    while (n && n.nodeName !== 'H2') { const nx = n.nextSibling; n.remove(); n = nx; }
-    if (!stages.some(s => (data[s.id] || '').trim())) {
-      const p = document.createElement('p'); p.className = 'placeholder'; p.textContent = 'No funnel KPIs yet.'; target.after(p); return;
-    }
-    const fn = document.createElement('div'); fn.className = 'bf-funnel';
-    stages.forEach((s, i) => {
-      const v = (data[s.id] || '').trim();
-      const tier = document.createElement('div'); tier.className = 'bf-tier';
-      tier.style.setProperty('--w', tierWidth(i, stages.length) + '%');
-      tier.style.setProperty('--c', s.color || STAGE_COLORS[i % STAGE_COLORS.length]);
-      const st = document.createElement('div'); st.className = 'bf-stage'; st.textContent = s.label;
-      const kp = document.createElement('div'); kp.className = 'bf-kpi'; kp.textContent = v || '—';
-      tier.append(st, kp); fn.appendChild(tier);
-    });
-    target.after(fn);
   }
   function cleanBriefHtml() {
     const clone = el.briefDoc.cloneNode(true);
@@ -1376,7 +1175,6 @@
     const replaced = !!editedBrief;
     pushUndo();                       // capture before the brief on the page is replaced
     el.briefDoc.innerHTML = Brief.toHtml(pendingDraft);
-    injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
     pendingDraft = null;
@@ -1427,7 +1225,7 @@
     nukeModal.card.innerHTML =
       '<div class="refine-hd nuke-hd"><span class="nuke-ico">&#9762;&#65039;</span> Nuclear delete' +
         '<button class="rf-close" type="button">&times;</button></div>' +
-      '<p class="nuke-warn"><b>This cannot be undone.</b> It erases every answer in every step, ' +
+      '<p class="nuke-warn"><b>This cannot be undone.</b> It erases every answer in every section, ' +
         'the funnel you have built, your uploaded document list and the brief itself — everything ' +
         'stored for this tool in this browser. There is no copy on a server to restore from, and ' +
         'Undo will not bring it back.</p>' +
@@ -1458,54 +1256,16 @@
   }
   function detonate() {
     data = {}; editedBrief = null; undoState = null;
-    // assistCache is a const map — clear its keys, or every step keeps the
-    // review it had before the brief was erased
-    Object.keys(assistCache).forEach(k => { delete assistCache[k]; });
     try {
       localStorage.removeItem(STORE_KEY);
       localStorage.removeItem(BRIEF_KEY);
     } catch {}
-    current = 0;
     nukeModal.close();
     showForm();
-    mapFunnelFields();     // the custom funnel went with the data; stages are the schema's again
-    renderStep();
+    renderPage();
     if (el.coAnswer) el.coAnswer.hidden = true;
-    renderAssist(null);
+    renderCoPilot();
     toast('Everything deleted — this is a blank brief');
-  }
-
-  /* ---------- audience builder ---------- */
-  let audModal = null;
-  async function openAudiences(fieldId) {
-    if (!audModal) audModal = makeModal();
-    audModal.card.innerHTML = '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Candidate audiences<button class="rf-close" type="button">×</button></div><div class="rf-loading"><svg class="gstar sp"><use href="#star"/></svg> Thinking…</div>';
-    modalClose(audModal); audModal.open();
-    try {
-      const r = await Gemini.audiences(data);
-      let html = '<div class="refine-hd"><svg class="gstar"><use href="#star"/></svg> Candidate audiences<button class="rf-close" type="button">×</button></div><div class="aud-list"></div>';
-      audModal.card.innerHTML = html;
-      const list = audModal.card.querySelector('.aud-list');
-      (r.options || []).forEach(o => {
-        const c = document.createElement('div');
-        c.className = 'aud-card';
-        c.innerHTML = `<div class="aud-t">${escapeHtml(o.title || '')}</div><div class="aud-d">${escapeHtml(o.definition || '')}</div><div class="aud-r">${escapeHtml(o.rationale || '')}</div>`;
-        const use = document.createElement('button');
-        use.type = 'button'; use.className = 'rf-chip'; use.textContent = 'Use this';
-        use.addEventListener('click', () => {
-          pushUndo();
-          data[fieldId] = o.definition || o.title;
-          const inp = document.getElementById('f_' + fieldId);
-          if (inp) inp.value = data[fieldId];
-          save(); markRail(); runAssist(); audModal.close(); toastAction('Audience added', 'Undo', doUndo);
-        });
-        c.appendChild(use); list.appendChild(c);
-      });
-      modalClose(audModal);
-    } catch (e) {
-      audModal.card.innerHTML = '<div class="refine-hd">Candidate audiences<button class="rf-close" type="button">×</button></div><div class="co-empty">' + (e && e.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not fetch suggestions.') + '</div>';
-      modalClose(audModal);
-    }
   }
 
   /* ---------- document ingest ---------- */
@@ -1590,7 +1350,7 @@
     ivStep(null);
   }
   function onInterviewClosed() {
-    renderStep();
+    renderPage();
     if (ivFilled) toastAction(ivFilled + (ivFilled === 1 ? ' answer filled' : ' answers filled'), 'Undo', doUndo);
   }
   function ivAddMsg(role, text) {
@@ -1613,7 +1373,12 @@
     try {
       const r = await Gemini.interview(data, ivHistory);
       (r.updates || []).forEach(u => {
-        if (u.fieldId && u.value != null) { data[u.fieldId] = u.value; ivFilled++; }
+        /* ONLY A FIELD THAT EXISTS. The server's catalog is pinned to the
+           schema by test, so this should never fire — but a model that invents
+           an id would otherwise write an answer into storage that no control
+           ever shows and no export ever reads, and the client would watch a
+           question they answered fail to appear. */
+        if (u.fieldId && u.value != null && FIELD_SECTION[u.fieldId]) { data[u.fieldId] = u.value; ivFilled++; }
       });
       save(); markRail();
       thinking.textContent = r.message || '';
@@ -1622,7 +1387,7 @@
       if (r.done) {
         input.placeholder = 'Interview complete ✓'; input.disabled = true; send.disabled = true;
         if (skip) skip.disabled = true;
-        renderStep();
+        renderPage();
         if (ivFilled) toastAction('Interview complete — ' + ivFilled + ' filled', 'Undo', doUndo);
         else toast('Interview complete');
       } else {
@@ -1676,13 +1441,13 @@
       if (editedBrief) localStorage.setItem(BRIEF_KEY, editedBrief); else localStorage.removeItem(BRIEF_KEY);
     } catch {}
     undoState = null;
-    if (onBrief) showBrief(); else renderStep();
+    if (onBrief) showBrief(); else renderPage();
     toast('Reverted');
   }
 
   /* ---------- jump to a field from a check ---------- */
   function goToField(fieldId) {
-    const idx = FIELD_STEP[fieldId];
+    const idx = FIELD_SECTION[fieldId];
     if (idx == null) return;
     if (onBrief) showForm();
     goTo(idx);
@@ -1698,12 +1463,11 @@
   }
 
   /* ---------- events ---------- */
-  el.backBtn.addEventListener('click', () => goTo(current - 1));
+  /* One button where there were two. There is no next step to go to, so the
+     only forward move left is the one that was always the point. */
   el.nextBtn.addEventListener('click', () => {
-    if (current === steps.length - 1) {
-      if (completedCount() === 0) { toast('Add some brief details before reviewing.'); return; }
-      showBrief();
-    } else goTo(current + 1);
+    if (completedCount() === 0) { toast('Add some brief details before reviewing.'); return; }
+    showBrief();
   });
   el.interviewBtn.addEventListener('click', openInterview);
   el.tourBtn.addEventListener('click', startTour);
@@ -1734,7 +1498,7 @@
         data = parsed.data || {};
         editedBrief = parsed.brief || null;
         try { localStorage.setItem(STORE_KEY, JSON.stringify(data)); if (editedBrief) localStorage.setItem(BRIEF_KEY, editedBrief); else localStorage.removeItem(BRIEF_KEY); } catch {}
-        current = 0; showForm(); mapFunnelFields(); renderStep();
+        showForm(); renderPage();
         if (hadWork) toastAction('Brief loaded — it replaced what was open', 'Undo', doUndo);
         else toast('Brief loaded');
       } catch { toast('That file could not be read'); }
@@ -1752,7 +1516,7 @@
     const hadWork = completedCount() > 0 || !!editedBrief;
     data = {}; editedBrief = null;
     try { localStorage.removeItem(STORE_KEY); localStorage.removeItem(BRIEF_KEY); } catch {}
-    current = 0; showForm(); mapFunnelFields(); renderStep();
+    showForm(); renderPage();
     if (el.coAnswer) el.coAnswer.hidden = true;
     if (hadWork) toastAction('Started a new brief', 'Undo', doUndo);
     else toast('Started a new brief');
@@ -1799,25 +1563,16 @@
       document.querySelectorAll('.sheet-wrap.open').forEach(o => o.classList.remove('open'));
     }
   });
-  el.coAskForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const q = el.coAskInput.value.trim();
-    if (!q) return;
-    el.coAskInput.value = '';
-    el.coAnswer.hidden = false;
-    el.coAnswer.innerHTML = '<button class="ca-x" type="button" aria-label="Dismiss">×</button>' +
-      '<div class="ca-q">' + escapeHtml(q) + '</div>' +
-      '<div class="ca-a"><svg class="gstar sp"><use href="#star"/></svg> Thinking…</div>';
-    el.coAnswer.querySelector('.ca-x').addEventListener('click', () => { el.coAnswer.hidden = true; });
-    try {
-      const r = await Gemini.ask(onBrief ? 'brief' : steps[current].id, data, q);
-      el.coAnswer.querySelector('.ca-a').innerHTML = '<svg class="gstar"><use href="#star"/></svg><span>' + escapeHtml(r.answer || '') + '</span>';
-    } catch (err) {
-      el.coAnswer.querySelector('.ca-a').textContent = err && err.status === 503 ? 'Add the Gemini key to enable this.' : 'Could not answer just now.';
-    }
-  });
   el.editBtn.addEventListener('click', showForm);
   el.genBtn.addEventListener('click', generate);
+  /* The same action from the co-pilot, which is where somebody looking for it
+     will be. It has to open the brief first — drafting proposes into a view
+     that is not on screen otherwise. */
+  el.draftBtn.addEventListener('click', () => {
+    if (completedCount() === 0) { toast('Answer something first — there is nothing to draft from yet.'); return; }
+    showBrief();
+    generate();
+  });
   el.briefDoc.addEventListener('input', () => { saveBrief(); el.saveState.textContent = 'Saved ✓'; });
   el.resetBriefBtn.addEventListener('click', () => {
     // discards every inline edit; capture before, not after
@@ -1826,7 +1581,6 @@
     editedBrief = null;
     try { localStorage.removeItem(BRIEF_KEY); } catch {}
     el.briefDoc.innerHTML = Brief.toHtml(Brief.toMarkdown(data));
-    injectFunnel(el.briefDoc);
     decorateSections();
     saveBrief();
     if (discarded) toastAction('Brief rebuilt — your edits were discarded', 'Undo', doUndo);
@@ -1904,10 +1658,9 @@
   /* ---------- coach marks (guided tour) ---------- */
   const TOUR_KEY = 'ltpbrief.tour';
   const TOUR_STEPS = [
-    { sel: '#steps', title: 'Five quick sections', body: 'Work through them in order or jump around — everything autosaves as you go.' },
-    { sel: '#fields', title: 'Fill it in here', body: 'Answer each section. Gemini reads along and flags anything that clashes with earlier answers.' },
-    { sel: '#copilot', title: 'Your Gemini co-pilot', body: 'It catches contradictions across steps and offers pre-fills you can accept with one click.' },
-    { sel: '.co-tools', title: 'Let Gemini interview you', body: 'In a hurry? Answer a few questions and Gemini fills the fields for you. (Or drop a document at the top of Context.)' },
+    { sel: '#fields', title: 'One page, eleven sections', body: 'Answer in any order — it saves as you go. Nothing here blocks you from finishing, so if you do not know something yet, leave it and say so.' },
+    { sel: '#steps', title: 'Jump around', body: 'The rail lists every section and fills in its dot as you answer. Above it is the count of what the planning team will chase you for — click it to go straight there.' },
+    { sel: '.co-tools', title: 'Or let Gemini ask you', body: 'Facing a long page is not the only way to fill one in. Interview me asks for it a question at a time, and Draft the brief turns your answers into the document the planning team reads.' },
     { sel: '.brief-nav', title: 'Finish here', body: 'Open the Full Brief to review, edit inline, refine any section, and export. Re-open this tour anytime from the “?” bottom-left.' }
   ];
   function startTour() {
@@ -2011,8 +1764,14 @@
   }
 
   /* ---------- boot ---------- */
-  mapFunnelFields();   // a saved custom funnel needs its stages routable before the first render
-  renderStep();
+  renderPage();
   initTooltips();
+  /* Written back straight away. A migration that only lives in memory runs
+     again on the next load, and the second run would append the parked answers
+     a second time. */
+  if (migrated) {
+    save();
+    toast('This brief was written on the older form — your answers were kept, and anything without a field now sits under “Research and data”.');
+  }
   maybeTour();
 })();

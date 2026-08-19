@@ -30,13 +30,31 @@ const Brief = (() => {
     return val(data, id + 'Other');
   }
 
-  function budgetLine(data) {
+  /* THE SLIDER'S UNIT IS MILLIONS, and that is what is stored — two numbers,
+     not the string on screen. The prose renders them the way a person reads a
+     budget; the handoff block multiplies them out, because a machine block
+     whose budget reads "$4M – $6M" has moved the parsing problem rather than
+     solved it. Briefs saved before the slider stored numbers kept a string, so
+     that is still read. */
+  function budgetPair(data) {
     const b = data.budget;
-    if (!b || typeof b !== 'object') return val(data, 'budget');
-    const money = n => (n == null ? '' : '$' + Number(n).toLocaleString('en-US'));
-    if (b.low == null && b.high == null) return '';
-    if (b.low === b.high) return money(b.low);
-    return `${money(b.low)} – ${money(b.high)}`;
+    if (b && typeof b === 'object') {
+      if (b.low == null && b.high == null) return null;
+      return { low: b.low, high: b.high };
+    }
+    const s = String(b == null ? '' : b);
+    const two = s.match(/(\d+)\s*M[^\d]+(\d+)\s*M/i);
+    if (two) return { low: +two[1], high: +two[2] };
+    const one = s.match(/(\d+)\s*M/i);
+    if (one) return { low: +one[1], high: +one[1] };
+    return null;
+  }
+
+  function budgetLine(data) {
+    const p = budgetPair(data);
+    if (!p) return val(data, 'budget');
+    const money = n => '$' + n + 'M';
+    return p.low === p.high ? money(p.low) : `${money(p.low)} – ${money(p.high)}`;
   }
 
   function assetLines(data) {
@@ -115,9 +133,14 @@ const Brief = (() => {
 
     const out = { tool: 'ltp-brief-intake', version: 1, plan };
 
-    const b = data.budget;
-    if (b && typeof b === 'object' && (b.low != null || b.high != null)) {
-      out.budget = { low: b.low, high: b.high, scope: (data.budgetScope || []).map(s) };
+    const money = budgetPair(data);
+    if (money) {
+      const M = 1000000;
+      out.budget = {
+        low: money.low * M,
+        high: money.high * M,
+        scope: (data.budgetScope || []).map(s)
+      };
     }
     const dates = {};
     if (val(data, 'launchDates')) dates.launch = val(data, 'launchDates');
