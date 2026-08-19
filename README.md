@@ -61,10 +61,44 @@ saying `US` where Strategy registers `USA` does not error; it produces a plan no
 can find. `test/taxonomy.test.js` checks the copy against Strategy's file directly
 whenever the two repos sit side by side on disk, and skips when they do not.
 
+## The module bar
+
+Top right, and three things: the plan chip, the module row, and the button that
+folds the row away.
+
+The row, Kessel and the theme switch travel together on `#hdStrip`, which
+**slides shut when the width is wanted and is open until somebody shuts it** —
+a bar that started closed would give away the exact thing that keeps those
+controls on screen. The plan chip sits outside the fold, because which plan
+this is should stay readable however folded everything beside it gets. It is
+empty and hidden until there is a plan to name.
+
+⚠️ **`js/strip.js` and `css/strip.css` are a copy, not a fork.** They came out
+of LTP Strategy and are copied between the planning modules the way
+`api/_gate.js` is. Neither file knows anything about this one: it is handed a
+box, a button, a key prefix and an optional `hold`, and the stylesheet asks for
+four colour variables that `css/styles.css` maps to this palette. **Fix a fold
+bug in one repo and carry the file across whole** — an edit made on the way in
+is how two copies of a shared file stop being the same file, and
+`test/wiring.test.js` fails if either one starts naming this module.
+
+The demonstration — it opens, waits, folds itself, and reminds every fifth
+visit after that — waits on `ltp:unlocked` exactly as the tour does. Whether
+there is a gate at all is an answer that arrives over the network, and a fold
+performed at boot lands behind the lock screen: spent, marked taught, and never
+shown again.
+
+**Kessel and the theme switch used to live in the rail foot.** They moved up
+here, where LTP Strategy keeps them, because they were the two things down
+there that were never about the brief. The theme is unchanged otherwise — two
+states, same `ltpbrief.theme` value; a labelled switch does not fit in a pill,
+so the label became the icon.
+
 ## Stack
 
 - Static front end (`index.html`, `css/`, `js/`) — no build step
 - One serverless function (`api/gemini.js`) proxies the model so the key stays server-side
+- `js/strip.js` + `css/strip.css` — the fold, shared with the other planning modules
 
 ## The gate
 

@@ -101,3 +101,103 @@ test('nothing but the site itself is shipped to the host', () => {
   ['docs', 'test'].forEach(dir =>
     assert.ok(ignored.includes(dir), `${dir}/ would be readable at ${dir}/… in production`));
 });
+
+/* ── the module bar's sliding strip ──────────────────────────────────────
+ *
+ * Going somewhere else, stepping sideways out of the process, and the light in
+ * the room. Three jobs, none of them about the answers on this page, so they
+ * travel together on a rail that can slide shut — OPEN by default, because
+ * being seen is the whole reason they are up here.
+ *
+ * The fold is `js/strip.js` and `css/strip.css`, shared with the other planning
+ * modules. Its own behaviour is tested in the repo it was extracted from; what
+ * these check is that the copy has not been edited on the way in, and that this
+ * page hands it what it needs.
+ */
+
+test('the shared fold is a copy, not a fork', () => {
+  /* ⚠️ THE WHOLE POINT IS THAT IT IS THE SAME FILE. A copy edited on the way
+     in stops being a copy, and the next fix has to be found and re-made in
+     however many repos took one. Both files declare what they need — a key
+     prefix, four colour variables — so nothing about this module has to be
+     written into them. */
+  const js = fs.readFileSync(path.join(root, 'js/strip.js'), 'utf8');
+  const css = fs.readFileSync(path.join(root, 'css/strip.css'), 'utf8');
+  assert.ok(!/ltpbrief/.test(js), 'the shared component has this module\'s storage keys baked in');
+  assert.ok(!/--(?!strip-)[a-z]/.test(css.replace(/\/\*[\s\S]*?\*\//g, '')),
+    'the shared stylesheet reaches for a variable that is not its own');
+});
+
+test('the page loads the fold, and loads it before the controller', () => {
+  const order = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1]);
+  assert.ok(order.includes('js/strip.js'), 'the fold is never loaded, so the bar cannot fold');
+  assert.ok(order.indexOf('js/strip.js') < order.indexOf('js/app.js'),
+    'app.js wires the strip and would run first');
+  assert.match(html, /<link rel="stylesheet" href="css\/strip\.css"/,
+    'the fold has no stylesheet, so it collapses with no animation');
+});
+
+test('this page maps the four colours the shared stylesheet asks for', () => {
+  const css = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
+  ['--strip-line', '--strip-ink', '--strip-ink3', '--strip-focus'].forEach(v =>
+    assert.match(css, new RegExp(`${v}\\s*:`), `${v} is never given a value, so the fold is unstyled`));
+});
+
+test('the chip that says which plan this is does not fold away with the rest', () => {
+  /* Whose plan this is stays on screen however folded everything beside it
+     gets. It is outside `#hdStrip` on purpose. */
+  const bar = html.slice(html.indexOf('class="modbar"'), html.indexOf('id="hdStripTog"'));
+  const strip = bar.slice(bar.indexOf('id="hdStrip"'));
+  assert.ok(bar.includes('id="paChip"'), 'there is nowhere to say which plan this is');
+  assert.ok(!strip.includes('id="paChip"'), 'the plan chip folds away with the module row');
+});
+
+test('the plan chip stays hidden until there is a plan to name', () => {
+  /* ⚠️ `hidden` ALONE DOES NOTHING HERE. An author `display` beats the
+     browser's own `[hidden]{display:none}`, so a chip given `display:flex` by
+     any rule would sit there empty on every page that has no plan yet. */
+  const css = fs.readFileSync(path.join(root, 'css/styles.css'), 'utf8');
+  assert.match(html, /id="paChip"[^>]*hidden/, 'the empty chip is on screen from the first load');
+  assert.match(css, /\.pachip\[hidden\]\s*\{\s*display:\s*none/,
+    'the hidden attribute is inert against this page\'s own display rule');
+});
+
+test('what is not about this brief travels on the strip', () => {
+  const strip = html.slice(html.indexOf('id="hdStrip"'), html.indexOf('id="hdStripTog"'));
+  ['<nav class="modnav"', 'id="kesselGo"', 'id="themeToggle"'].forEach(k =>
+    assert.ok(strip.includes(k), `${k} is not on the strip`));
+  /* And what IS about it stays in the rail. The tour explains this page and
+     the save state is this page's, so neither folds away. */
+  const foot = html.slice(html.indexOf('class="rail-foot"'), html.indexOf('</aside>'));
+  ['id="tourBtn"', 'id="saveState"'].forEach(k =>
+    assert.ok(foot.includes(k), `${k} left the rail`));
+});
+
+test('the demonstration waits for the door, exactly as the tour does', () => {
+  /* ⚠️ WHETHER THERE IS A GATE ARRIVES OVER THE NETWORK. A fold performed at
+     boot lands behind the lock screen, and a demonstration nobody sees is
+     spent, marked taught, and never shown again. */
+  assert.match(app, /ltp:unlocked'[\s\S]{0,120}Strip\.teach\(/,
+    'the strip demonstrates itself behind the lock screen');
+  assert.ok(!/Strip\.init[\s\S]{0,400}Strip\.teach/.test(app),
+    'the strip is taught from init, which runs at boot');
+});
+
+test('the strip holds still while the tour is measuring the bar', () => {
+  /* The tour rings a rect it has already taken; a bar that reflows underneath
+     leaves the ring around nothing. The overlay is in the document for exactly
+     as long as the tour runs, which is what `hold` watches. */
+  assert.match(app, /hold:[\s\S]{0,120}querySelector\('\.tour'\)/,
+    'the bar can reflow under a tour ring');
+  assert.match(app, /overlay\.className = 'tour'/,
+    'the tour no longer marks itself the way the strip watches for');
+});
+
+test('the theme switch kept its two states and its stored value', () => {
+  /* It moved onto the bar and the label became an icon. That is all that
+     changed — a third state, or a new key, would silently reset everybody. */
+  assert.match(app, /THEME_KEY = 'ltpbrief\.theme'/, 'the theme moved to a key nobody has');
+  assert.match(app, /aria-checked/, 'the switch stopped reporting its state');
+  assert.ok(!/'system'/.test(app.slice(app.indexOf('---------- theme'), app.indexOf('module bar'))),
+    'the theme grew a third state it was not asked for');
+});

@@ -7,6 +7,9 @@
   <meta name="description" content="An assisted intake for long-term media planning." />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CclipPath id='aclip'%3E%3Crect width='64' height='64' rx='14.5'/%3E%3C/clipPath%3E%3Cg id='asil-brief'%3E%3Cpath d='M20 17a3 3 0 0 1 3-3h14l9 9v24a3 3 0 0 1-3 3H23a3 3 0 0 1-3-3z'/%3E%3C/g%3E%3C/defs%3E%3Crect width='64' height='64' rx='14.5' fill='%23DC4B3F'/%3E%3Cg clip-path='url(%23aclip)' opacity='.2' color='%23000' fill='%23000'%3E%3Cuse href='%23asil-brief' x='48' y='48'/%3E%3Cuse href='%23asil-brief' x='45.6' y='45.6'/%3E%3Cuse href='%23asil-brief' x='43.2' y='43.2'/%3E%3Cuse href='%23asil-brief' x='40.8' y='40.8'/%3E%3Cuse href='%23asil-brief' x='38.4' y='38.4'/%3E%3Cuse href='%23asil-brief' x='36' y='36'/%3E%3Cuse href='%23asil-brief' x='33.6' y='33.6'/%3E%3Cuse href='%23asil-brief' x='31.2' y='31.2'/%3E%3Cuse href='%23asil-brief' x='28.8' y='28.8'/%3E%3Cuse href='%23asil-brief' x='26.4' y='26.4'/%3E%3Cuse href='%23asil-brief' x='24' y='24'/%3E%3Cuse href='%23asil-brief' x='21.6' y='21.6'/%3E%3Cuse href='%23asil-brief' x='19.2' y='19.2'/%3E%3Cuse href='%23asil-brief' x='16.8' y='16.8'/%3E%3Cuse href='%23asil-brief' x='14.4' y='14.4'/%3E%3Cuse href='%23asil-brief' x='12' y='12'/%3E%3Cuse href='%23asil-brief' x='9.6' y='9.6'/%3E%3Cuse href='%23asil-brief' x='7.2' y='7.2'/%3E%3Cuse href='%23asil-brief' x='4.8' y='4.8'/%3E%3Cuse href='%23asil-brief' x='2.4' y='2.4'/%3E%3C/g%3E%3Cpath d='M20 17a3 3 0 0 1 3-3h14l9 9v24a3 3 0 0 1-3 3H23a3 3 0 0 1-3-3z' fill='%23fff'/%3E%3Cpath d='M37 14l9 9h-7a2 2 0 0 1-2-2z' fill='%23C6DAFC'/%3E%3Cpath d='M27 33.5l4.5 4.5 9-10' fill='none' stroke='%231A67D2' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/styles.css" />
+  <!-- The fold, and only the fold. Shared with the other planning modules and
+       copied between them byte for byte, so it stays out of styles.css. -->
+  <link rel="stylesheet" href="css/strip.css" />
   <script>try{var t=localStorage.getItem('ltpbrief.theme');if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
 </head>
 <body>
@@ -41,21 +44,11 @@
       <div class="prog" id="progLabel">0 of 11 sections answered</div>
       <div class="progbar"><i id="progFill"></i></div>
       <nav class="steps" id="steps" aria-label="Brief sections"></nav>
+      <!-- Kessel and the theme switch moved up onto the module bar, where
+           Strategy Discovery keeps them: they are the two things down here
+           that were never about the brief. What is left is. -->
       <div class="rail-foot">
-        <a class="rail-link" href="https://kessel.mediafuturesgroup.app/us/gemini/headline" target="_blank" rel="noopener" data-tip="Open MFG Kessel — Gemini US headline view">
-          <span class="rail-link-ico">🚀</span>
-          <span class="rail-link-label"><span class="mfg">MFG</span> Kessel</span>
-          <span class="rail-link-ext">↗</span>
-        </a>
         <div class="rail-foot-row">
-          <button class="theme-toggle" id="themeToggle" type="button" role="switch" aria-checked="false" aria-label="Dark mode" data-tip="Switch between light and dark">
-            <span class="track">
-              <span class="ico sun" aria-hidden="true">☀</span>
-              <span class="ico moon" aria-hidden="true">☾</span>
-              <span class="knob"></span>
-            </span>
-            <span class="tlabel" id="themeLabel">Light</span>
-          </button>
           <button class="help-btn" id="tourBtn" type="button" data-tip="Take a quick tour" aria-label="Take a tour">?</button>
         </div>
         <div class="save" id="saveState" data-tip="Your answers autosave to this browser">Saved ✓</div>
@@ -64,20 +57,61 @@
 
     <!-- CENTER: form / brief -->
     <main class="main" id="main">
-      <nav class="modnav" aria-label="Planning modules">
-        <a class="modhome" href="https://ltpos.mfgpilots.com/" title="Back to the process map">
-          <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
-            <rect width="64" height="64" rx="14.5" fill="#202124"/>
-            <rect x="14" y="13.5" width="18" height="6.5" rx="3.25" fill="#8AB4F8"/>
-            <rect x="21" y="24" width="21" height="6.5" rx="3.25" fill="#F28B82"/>
-            <rect x="28" y="34.5" width="19" height="6.5" rx="3.25" fill="#FDD663"/>
-            <rect x="35" y="45" width="15" height="6.5" rx="3.25" fill="#81C995"/>
-          </svg></a>
-        <span class="modsep" aria-hidden="true"></span>
-        <span class="modtile on" aria-current="page" title="Brief Intake — you are here"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#ic-brief"/></svg></span>
-        <a class="modtile" href="https://ltpstrategy.mfgpilots.com/" target="_blank" rel="noopener" title="Open Strategy Discovery in a new tab"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#ic-strategy"/></svg></a>
-        <a class="modtile" href="https://ltpmediaplanning.mfgpilots.com/" target="_blank" rel="noopener" title="Open Media Planning in a new tab"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#ic-planning"/></svg></a>
-      </nav>
+      <!-- ── WHAT IS NOT ABOUT THIS BRIEF ──────────────────────────────────
+           Going somewhere else, stepping sideways out of the process, and the
+           light in the room. Three unrelated jobs, none of them about the
+           answers on this page, so they travel together on a rail that slides
+           shut when the width is wanted — and it is OPEN until somebody shuts
+           it, because being seen is the whole reason they are up here.
+
+           The same fold Strategy Discovery has, out of the same two files. -->
+      <div class="modbar">
+        <!-- Outside the fold, deliberately. Which plan this is stays on screen
+             however folded everything beside it gets. Empty until there is a
+             plan to name. -->
+        <button class="pachip" id="paChip" type="button" hidden></button>
+
+        <div class="hd-strip" id="hdStrip">
+          <nav class="modnav" aria-label="Planning modules">
+            <a class="modhome" href="https://ltpos.mfgpilots.com/" title="Back to the process map">
+              <svg viewBox="0 0 64 64" aria-hidden="true" focusable="false">
+                <rect width="64" height="64" rx="14.5" fill="#202124"/>
+                <rect x="14" y="13.5" width="18" height="6.5" rx="3.25" fill="#8AB4F8"/>
+                <rect x="21" y="24" width="21" height="6.5" rx="3.25" fill="#F28B82"/>
+                <rect x="28" y="34.5" width="19" height="6.5" rx="3.25" fill="#FDD663"/>
+                <rect x="35" y="45" width="15" height="6.5" rx="3.25" fill="#81C995"/>
+              </svg></a>
+            <span class="modsep" aria-hidden="true"></span>
+            <span class="modtile on" aria-current="page" title="Brief Intake — you are here"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#ic-brief"/></svg></span>
+            <a class="modtile" href="https://ltpstrategy.mfgpilots.com/" target="_blank" rel="noopener" title="Open Strategy Discovery in a new tab"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#ic-strategy"/></svg></a>
+            <a class="modtile" href="https://ltpmediaplanning.mfgpilots.com/" target="_blank" rel="noopener" title="Open Media Planning in a new tab"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#ic-planning"/></svg></a>
+          </nav>
+
+          <!-- Kessel, a step sideways out of the process. Outside the module
+               row because it is not a step of this one, and in a new tab for
+               the same reason a module is: you are mid-brief, and losing that
+               to a navigation click is the whole thing worth protecting. -->
+          <a class="hdlaunch" id="kesselGo" href="https://kessel.mediafuturesgroup.app/us/gemini/headline"
+            target="_blank" rel="noopener"
+            title="Open MFG Kessel — Gemini US headline view" aria-label="Open MFG Kessel in a new tab">
+            <span aria-hidden="true">🚀</span>
+          </a>
+
+          <!-- Last, because it is the only control here that changes nothing
+               about the brief. Two states, as it has always been — the icon is
+               new, the switch is not. -->
+          <button class="themetog" id="themeToggle" type="button" role="switch" aria-checked="false"
+            aria-label="Dark mode" title="Switch between light and dark">
+            <span class="tt-ico" id="themeIco" aria-hidden="true">☀</span>
+          </button>
+        </div>
+
+        <!-- Last, so the strip slides away from the edge rather than through
+             the button that closes it. -->
+        <button class="hd-striptog" id="hdStripTog" type="button"
+          aria-controls="hdStrip" aria-expanded="true"
+          title="Hide the module and view controls">›</button>
+      </div>
       <div class="form-view" id="formView">
         <header class="mainhead">
           <h1>LTP Brief Intake</h1>
@@ -129,6 +163,10 @@
     </aside>
   </div>
 
+  <!-- The fold on the module bar. Shared with the other planning modules and
+       copied between them, so it knows nothing about what travels in the
+       strip. Before app.js, which wires it. -->
+  <script src="js/strip.js"></script>
   <script src="js/schema.js"></script>
   <script src="js/gemini.js"></script>
   <script src="js/migrate.js"></script>

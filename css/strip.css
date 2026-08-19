@@ -1,0 +1,70 @@
+/* A sliding strip of chrome, and the button that folds it away.
+   Shared across the planning modules — this file is copied between them the
+   way `_gate.js` is, and it styles the fold rather than anything travelling in
+   it. Each module supplies its own contents and its own colour variables.
+
+   ⚠️ NO WIDTH IS DECLARED HERE ON PURPOSE. It animated between a fixed ceiling
+   and zero, and a ceiling chosen to be safely larger than the strip meant the
+   first stretch of every collapse clipped nothing — the motion was not linear
+   in the thing being watched, which is what "not smooth" looks like. The real
+   width is measured in `js/strip.js` and written inline; only script knows how
+   wide this is on this screen.
+
+   `max-width` is still the property, because it is the one that animates from
+   content-sized to nothing without the contents reflowing on the way: the
+   icons slide out at their own size rather than squashing toward it.
+
+   ⚠️ FOUR VARIABLES, AND THEY ARE THE WHOLE REASON THIS FILE COPIES CLEANLY.
+   Each module names its colours differently — `--shell-line` here, `--line2`
+   next door — so a file written against either one arrives broken and has to
+   be edited on the way in, which is how two copies of a shared file stop being
+   the same file. This declares what it needs and each module maps them in its
+   own stylesheet. Nothing else in here knows a module's palette. */
+.hd-strip {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: none;
+  overflow: hidden;
+  opacity: 1;
+  /* One duration and one curve across all three, so the icons fade out at the
+     rate the space closes rather than vanishing first and leaving a gap to
+     shut behind them. */
+  transition: max-width .42s cubic-bezier(.4, .02, .2, 1),
+              opacity .42s cubic-bezier(.4, .02, .2, 1),
+              margin-right .42s cubic-bezier(.4, .02, .2, 1);
+}
+/* Shut. The negative margin swallows the parent's gap, so a folded strip
+   leaves no hole between Save and the button that unfolds it. */
+.hd-strip.shut {
+  opacity: 0;
+  margin-right: -9px;
+}
+/* Restoring a remembered fold, rather than performing one. Somebody who folded
+   this yesterday should find it folded, not watch it fold again every load. */
+.hd-strip.nofx { transition: none; }
+
+.hd-striptog {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--strip-line);
+  border-radius: 999px;
+  background: none;
+  color: var(--strip-ink3);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.hd-striptog:hover { color: var(--strip-ink); border-color: var(--strip-ink3); }
+.hd-striptog:focus-visible { outline: 2px solid var(--strip-focus); outline-offset: 2px; }
+
+/* The slide is the whole mechanism, so with motion off it simply is or is not
+   there — no half-open frame anybody has to wait through. */
+@media (prefers-reduced-motion: reduce) {
+  .hd-strip { transition: none; }
+}

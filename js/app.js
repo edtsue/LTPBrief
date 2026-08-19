@@ -1697,19 +1697,48 @@
     document.addEventListener('ltp:unlocked', () => setTimeout(startTour, 700), { once: true });
   }
 
-  /* ---------- theme ---------- */
+  /* ---------- theme ----------
+     Two states, as it has always been, and the same stored value. What changed
+     is where it sits: it moved out of the rail foot onto the module bar, where
+     Strategy Discovery keeps it, and a labelled switch does not fit in a pill.
+     So the label became the icon. It is still `role="switch"`, still
+     `aria-checked`, and still says what it is — the sighted label is what went,
+     and it went because the icon says the same thing in the space available. */
   const THEME_KEY = 'ltpbrief.theme';
   const themeToggle = document.getElementById('themeToggle');
-  const themeLabel = document.getElementById('themeLabel');
+  const themeIco = document.getElementById('themeIco');
   function setTheme(t) {
     document.documentElement.setAttribute('data-theme', t);
     themeToggle.setAttribute('aria-checked', String(t === 'dark'));
-    themeLabel.textContent = t === 'dark' ? 'Dark' : 'Light';
+    /* The icon shows where you ARE, not where pressing takes you — the label
+       it replaced read "Light" while the page was light. */
+    if (themeIco) themeIco.textContent = t === 'dark' ? '\u263e' : '\u2600';
+    themeToggle.title = t === 'dark' ? 'Dark — press for light' : 'Light — press for dark';
     try { localStorage.setItem(THEME_KEY, t); } catch {}
   }
   setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
   themeToggle.addEventListener('click', () => {
     setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  });
+
+  /* ---------- the module bar's fold ----------
+     js/strip.js owns everything the fold does; this says which keys it is kept
+     under and what the button reads. Open until somebody shuts it.
+
+     `init` restores the remembered fold and hands back what this browser knew.
+     It does NOT demonstrate — see the boot, which waits for the door. */
+  const stripKept = Strip.init({
+    box: document.getElementById('hdStrip'),
+    tog: document.getElementById('hdStripTog'),
+    prefix: 'ltpbrief',
+    labels: {
+      hide: 'Hide the module and view controls',
+      show: 'Show the module and view controls'
+    },
+    /* The tour draws its ring against a rect it has already measured, and a
+       bar that reflows underneath leaves the ring around nothing. The overlay
+       is in the document for exactly as long as the tour runs. */
+    hold: () => !!document.querySelector('.tour')
   });
 
   // Mobile: tap the co-pilot header to open/close the drawer.
@@ -1756,4 +1785,11 @@
     toast('This brief was written on the older form — your answers were kept, and anything without a field now sits under “Research and data”.');
   }
   maybeTour();
+  /* ⚠️ THE DEMONSTRATION WAITS FOR THE DOOR, exactly as the tour does. Whether
+     a gate is configured is an answer that arrives over the network, so a fold
+     performed at boot lands behind the lock screen — and a demonstration
+     nobody sees is the whole thing wasted, spent, and marked as taught.
+     `ltp:unlocked` fires on every path that leaves the tool usable, including
+     the ones where there was no door. */
+  document.addEventListener('ltp:unlocked', () => Strip.teach(stripKept), { once: true });
 })();

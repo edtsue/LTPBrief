@@ -23,7 +23,6 @@
   --gapBg:rgba(234,67,53,.12);   --gapLine:rgba(234,67,53,.38);   --gapInk:#A50E0E;
   --fyiBg:rgba(52,168,83,.15);   --fyiLine:rgba(52,168,83,.42);   --fyiInk:#137333;
   --suggBg:rgba(66,133,244,.12); --suggLine:rgba(66,133,244,.32); --suggInk:#174EA6;
-  --knob:#fff;
 }
 :root[data-theme="dark"]{
   /* ---------- MIDNIGHT NEBULA (dark) ---------- */
@@ -42,7 +41,6 @@
   --gapBg:rgba(234,67,53,.15);   --gapLine:rgba(234,67,53,.42);   --gapInk:#F6A99F;
   --fyiBg:rgba(52,168,83,.15);   --fyiLine:rgba(52,168,83,.42);   --fyiInk:#7FD69A;
   --suggBg:rgba(110,139,255,.15);--suggLine:rgba(120,140,255,.38);--suggInk:#CFE0FF;
-  --knob:#0E1220;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -106,22 +104,12 @@ body{
 .brief-nav .num.brief-ico .gstar{width:19px;height:19px;animation:spin 12s linear infinite}
 .brief-nav.active{background:var(--accentBg);color:var(--accentInk);font-weight:600}
 
-/* rail footer: theme toggle + save */
+/* rail footer: the tour, and whether it saved.
+   Kessel and the theme switch used to live here too. They moved up onto the
+   module bar, where Strategy Discovery keeps them — the two things down here
+   that were never about the brief. `.rail-link` and `.theme-toggle` went with
+   them; the icon versions are further down, beside `.modbar`. */
 .rail-foot{margin-top:auto;display:flex;flex-direction:column;gap:10px;padding-top:12px}
-.rail-link{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:var(--radius);font-size:13.5px;font-weight:600;
-  color:var(--ink2);text-decoration:none;transition:.16s}
-.rail-link:hover{background:var(--line2);color:var(--accentInk)}
-.rail-link-ico{width:22px;height:22px;flex:none;display:grid;place-items:center;font-size:16px;line-height:1}
-.rail-link-label{flex:1}
-.rail-link-ext{font-size:12px;color:var(--ink3)}
-.theme-toggle{display:flex;align-items:center;gap:10px;background:none;border:none;cursor:pointer;font:inherit;color:var(--ink3);padding:4px}
-.theme-toggle .track{position:relative;width:46px;height:26px;border-radius:999px;background:var(--field);border:1px solid var(--fieldline);display:flex;align-items:center;justify-content:space-between;padding:0 6px;flex:none}
-.theme-toggle .ico{font-size:12px;line-height:1;z-index:1;opacity:.6}
-.theme-toggle .ico.sun{color:#F9AB00}
-.theme-toggle .ico.moon{color:#C58AF9}
-.theme-toggle .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:var(--knob);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .22s cubic-bezier(.4,1.3,.6,1)}
-:root[data-theme="dark"] .theme-toggle .knob{transform:translateX(20px)}
-.theme-toggle .tlabel{font-size:12px;font-weight:600}
 .save{font-size:11.5px;color:var(--fyiInk);padding:0 4px;transition:opacity .3s}
 .save.saving{color:var(--ink3)}
 
@@ -135,8 +123,17 @@ body{
    The map opens in this tab because it is a step back. A module opens in a new
    one because it is a step sideways — you are mid-brief, and losing it to a
    navigation click is the whole thing you were protecting. */
-.modnav{position:absolute;top:14px;right:18px;z-index:20;display:flex;align-items:center;gap:6px;
+/* The bar the module row travels on. Absolutely positioned where the row used
+   to be, because the row is now one of three things up here — the plan chip
+   that never folds, the strip that does, and the button that folds it.
+
+   ⚠️ THE PILL MOVED OUT TO THE BAR. It used to be drawn on `.modnav` itself,
+   which put a border and a background around the one part of this that
+   collapses to nothing — so a folded strip left an empty capsule sitting in
+   the corner. The bar wears the pill; the row inside it wears nothing. */
+.modbar{position:absolute;top:14px;right:18px;z-index:20;display:flex;align-items:center;gap:9px;
   padding:4px 6px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
+.modnav{display:flex;align-items:center;gap:6px;flex:none}
 .modhome{display:flex;flex:none;border-radius:8px}
 .modhome svg{width:24px;height:24px;display:block;border-radius:8px}
 .modhome:hover{filter:brightness(1.12)}
@@ -154,7 +151,38 @@ body{
 .modtile.soon{filter:grayscale(1);opacity:.45;cursor:default}
 .modtile.soon:hover{filter:grayscale(1)}
 .modtile:focus-visible,.modhome:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.mainhead{padding-right:132px}
+
+/* What css/strip.css asks for. That file is copied between the planning
+   modules byte for byte and each of them names its colours differently, so it
+   declares what it needs and this says which of ours those are. */
+:root{--strip-line:var(--line2);--strip-ink:var(--ink);--strip-ink3:var(--ink3);--strip-focus:var(--accent)}
+
+/* WHICH PLAN THIS IS. Outside the fold, so it stays on screen however folded
+   everything beside it gets. Empty until there is a plan to name — and
+   ⚠️ `[hidden]` needs saying out loud, because an author `display` beats the
+   browser's own rule and `hidden` would otherwise do nothing at all. */
+.pachip{flex:none;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9.5px;font-weight:700;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);background:none;
+  border:1px solid var(--line2);border-radius:999px;padding:0 11px;height:26px;cursor:pointer;white-space:nowrap}
+.pachip[hidden]{display:none}
+.pachip:hover{color:var(--ink);border-color:var(--ink3)}
+
+/* Kessel and the theme, as icons rather than as rows. They were labelled
+   controls in the rail foot; up here they are two 28px circles, which is what
+   Strategy Discovery makes them and what fits in a pill. */
+.hdlaunch,.themetog{flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:28px;height:28px;border:1px solid var(--line2);border-radius:999px;background:var(--field);
+  font:inherit;font-size:14px;line-height:1;text-decoration:none;color:var(--ink3);cursor:pointer}
+.hdlaunch:hover{border-color:var(--ink3);transform:translateY(-1px)}
+.themetog{font-size:13px}
+.themetog:hover{color:var(--ink);border-color:var(--ink3)}
+.hdlaunch:focus-visible,.themetog:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Cleared for the module bar, which is absolutely positioned and so takes no
+   space of its own. Sized for the bar OPEN — it starts open, and a heading
+   that only clears it once somebody folds it is a heading that collides on
+   first sight. Two more controls joined the row, hence the number. */
+.mainhead{padding-right:244px}
 .form-view,.brief-view{padding:28px 36px;display:flex;flex-direction:column;align-items:center;height:100%;overflow:hidden}
 .form-view[hidden],.brief-view[hidden]{display:none!important}
 /* keep working content at a comfortable width, no ultrawide dead space */
@@ -628,7 +656,7 @@ body.dragging-stage{user-select:none;-webkit-user-select:none}
 @media print{
   @page{margin:14mm}
   body{overflow:visible;background:#fff}
-  .ambient,.rail,.copilot,.brief-actions,.mainhead,.form-view,.toast,.tip,.tour,.tour-spot,.tour-card,.sec-ai,.refine-overlay{display:none!important}
+  .ambient,.rail,.copilot,.brief-actions,.mainhead,.form-view,.modbar,.toast,.tip,.tour,.tour-spot,.tour-card,.sec-ai,.refine-overlay{display:none!important}
   .app{display:block;height:auto}
   .main{overflow:visible}
   .brief-view{padding:0;height:auto;overflow:visible;display:block}
@@ -644,8 +672,8 @@ body.dragging-stage{user-select:none;-webkit-user-select:none}
    iOS-inspired layer
    ============================================================ */
 /* spring tap feedback */
-.btn,.step,.pill,.co-tool,.rail-link,.theme-toggle,.help-btn,.sec-ai,.ai-mini,.field-link,.miniact .b,.rf-chip,.add-asset,.dz-btn,.co-ask-send,.ins,.rd-chip,.brief-nav{transition:transform .18s var(--spring),background .16s,filter .15s,border-color .15s,box-shadow .15s}
-.btn:active,.step:active,.pill:active,.co-tool:active,.rail-link:active,.help-btn:active,.sec-ai:active,.ai-mini:active,.field-link:active,.miniact .b:active,.rf-chip:active,.add-asset:active,.dz-btn:active,.co-ask-send:active,.rd-chip:active,.brief-nav:active{transform:scale(.96)}
+.btn,.step,.pill,.co-tool,.hdlaunch,.themetog,.help-btn,.sec-ai,.ai-mini,.field-link,.miniact .b,.rf-chip,.add-asset,.dz-btn,.co-ask-send,.ins,.rd-chip,.brief-nav{transition:transform .18s var(--spring),background .16s,filter .15s,border-color .15s,box-shadow .15s}
+.btn:active,.step:active,.pill:active,.co-tool:active,.hdlaunch:active,.themetog:active,.help-btn:active,.sec-ai:active,.ai-mini:active,.field-link:active,.miniact .b:active,.rf-chip:active,.add-asset:active,.dz-btn:active,.co-ask-send:active,.rd-chip:active,.brief-nav:active{transform:scale(.96)}
 .assist.clickable:active{transform:scale(.985)}
 
 /* iOS large title + vibrant type */

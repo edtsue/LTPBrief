@@ -19,6 +19,11 @@ const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 
+/* Every script the page loads, in the page's order, minus the door. Checked
+   against index.html by the test below rather than trusted. */
+const BOOT_ORDER = ['js/strip.js', 'js/schema.js', 'js/gemini.js', 'js/migrate.js',
+  'js/brief.js', 'js/app.js'];
+
 function node(tag) {
   const n = {
     tagName: String(tag || 'div').toUpperCase(), nodeType: 1, children: [], childNodes: [],
@@ -99,11 +104,26 @@ function boot(saved) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
 
-  for (const f of ['js/schema.js', 'js/gemini.js', 'js/migrate.js', 'js/brief.js', 'js/app.js']) {
+  for (const f of BOOT_ORDER) {
     vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), sandbox, { filename: f });
   }
   return { byId, store };
 }
+
+test('the boot order is the page\'s own', () => {
+  /* ⚠️ THIS LIST DRIFTS SILENTLY. It was hand-written, a shared module was
+     added to the page, and every boot test failed on "Strip is not defined" —
+     which reads as a broken controller rather than a stale test.
+
+     `js/gate.js` is deliberately not booted: it talks to /api/gate on load and
+     what it guards is the door, not the controller. Anything else the page
+     loads has to be here. */
+  const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const onPage = [...html.matchAll(/<script src="([^"]+)"/g)].map(m => m[1])
+    .filter(f => f !== 'js/gate.js');
+  assert.deepEqual(BOOT_ORDER, onPage,
+    'the page loads a script this harness does not, or in a different order');
+});
 
 test('the controller boots without throwing', () => {
   assert.doesNotThrow(() => boot(null));
