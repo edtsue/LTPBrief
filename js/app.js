@@ -49,6 +49,11 @@
   };
 
   const BRIEF_KEY = 'ltpbrief.brief';
+  /* DECLARED BEFORE `load()` RUNS, not beside it. `function load` hoists and
+     this does not, so writing it next to the function it belongs to put the
+     whole controller in the temporal dead zone: the first line of work threw,
+     and the page rendered its static shell and nothing else. */
+  let migrated = false;
   let data = load();
   let onBrief = false;
   let editedBrief = null;
@@ -56,8 +61,8 @@
 
   /* BRIEFS SAVED AGAINST THE SIX STEPS STILL OPEN. Half those fields no longer
      exist and the ones that went were not trivial, so nothing is discarded —
-     see `js/migrate.js`. The brief is told once, rather than silently. */
-  let migrated = false;
+     see `js/migrate.js`. The brief is told once, rather than silently.
+     `migrated` is declared above, before the call that sets it. */
   function load() {
     let raw;
     try { raw = JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
