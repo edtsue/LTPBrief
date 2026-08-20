@@ -37,7 +37,12 @@ const Strip = (() => {
      what the waiting exists to prevent — so it comes back on the next visit
      instead. */
   const HOLD_RETRY = 1400;
-  const HOLD_TRIES = 10;
+  /* ⚠️ LONG ENOUGH FOR THE THING THAT ACTUALLY HOLDS IT — a first-run tour,
+     which is up for as long as somebody takes to read five stops. Fourteen
+     seconds was not: the tour outlived the wait, the strip gave up, and the
+     demonstration was put off to the next visit on every single first visit.
+     Bounded still, because unbounded is a timer for the life of the page. */
+  const HOLD_FOR = 60000;
 
   let box = null;
   let tog = null;
@@ -207,7 +212,7 @@ const Strip = (() => {
          leaves the ring around nothing, so this waits rather than competing
          with it. */
       if (hold && hold()) {
-        if (waited++ < HOLD_TRIES) setTimeout(shut, HOLD_RETRY);
+        if (waited < HOLD_FOR) { waited += HOLD_RETRY; setTimeout(shut, HOLD_RETRY); }
         return;
       }
       /* And if they folded it themselves while this was waiting, there is
