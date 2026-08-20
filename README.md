@@ -113,6 +113,16 @@ there that were never about the brief. The theme is unchanged otherwise — two
 states, same `ltpbrief.theme` value; a labelled switch does not fit in a pill,
 so the label became the icon.
 
+## The tour
+
+Two ways out, because they are two different promises. **Skip for Now** ends
+this run and the tour comes back. **Don't show this again** turns it off.
+Reaching the last stop counts as having seen it.
+
+⚠️ There was one way out and it wrote the key, so **Skip meant never,
+silently** — somebody who did not want the tour right now turned it off for
+good without being told, and somebody who wanted it back had nothing to press.
+
 ## Stack
 
 - Static front end (`index.html`, `css/`, `js/`) — no build step

@@ -171,3 +171,28 @@ test('⚠️ a press before the brief is rendered still hands over the brief', (
   assert.match(fn, /shown && shown\.trim\(\) \? shown : null/,
     'an unrendered brief exports as empty');
 });
+
+/* ── the tour, and saying never ───────────────────────────────────────────── */
+
+test('⚠️ Skip means not now, and there is a separate way to say never', () => {
+  /* There was one way out and it wrote the key: Skip meant never, silently. So
+     somebody who did not want the tour right now turned it off for good without
+     being told, and somebody who wanted it back had nothing to press. Both
+     halves are the same fault — the control said one thing and did another. */
+  const app = readH('js', 'app.js');
+  const fn = app.slice(app.indexOf('function startTour'), app.indexOf('function maybeTour'));
+  assert.match(fn, /class="tour-never"/, 'there is no way to turn the tour off');
+  assert.match(fn, /tour-skip[^>]*>Skip for Now/, 'Skip does not say it only means this run');
+  assert.match(fn, /function end\(forGood\)/, 'ending is still one thing');
+  assert.match(fn, /\.tour-skip'\)\.onclick = \(\) => end\(false\)/, 'Skip still turns the tour off for good');
+  const css = readH('css', 'styles.css');
+  assert.match(css, /\.tour-never\{/, 'the checkbox has no styling');
+});
+
+test('reaching the last stop counts as having seen it', () => {
+  /* Somebody who read all of it does not need it offered again. */
+  const app = readH('js', 'app.js');
+  const fn = app.slice(app.indexOf('function startTour'), app.indexOf('function maybeTour'));
+  assert.match(fn, /i === TOUR_STEPS\.length - 1[\s\S]{0,80}end\(true\)/,
+    'finishing the tour does not remember that it was finished');
+});

@@ -1696,7 +1696,24 @@
     const card = document.createElement('div'); card.className = 'tour-card';
     overlay.append(spot, card);
     document.body.appendChild(overlay);
-    function end() { overlay.remove(); window.removeEventListener('resize', render); try { localStorage.setItem(TOUR_KEY, '1'); } catch {} }
+    /* ⚠️ TWO WAYS OUT, BECAUSE THEY ARE TWO DIFFERENT PROMISES.
+     *
+     * There was one, and it wrote the key: Skip meant never, silently. So
+     * somebody who did not want the tour *right now* turned it off for good
+     * without being told, and somebody who did want it back had nothing to
+     * press. Both halves are the same fault — the control said one thing and
+     * did another.
+     *
+     * Skip ends this run and the tour comes back. The checkbox turns it off.
+     * Reaching the last stop counts as having seen it, because somebody who
+     * read all of it does not need it offered again.
+     */
+    let never = false;
+    function end(forGood) { 
+      overlay.remove();
+      window.removeEventListener('resize', render);
+      if (forGood || never) { try { localStorage.setItem(TOUR_KEY, '1'); } catch {} }
+    }
     function render() {
       while (i < TOUR_STEPS.length && !document.querySelector(TOUR_STEPS[i].sel)) i++;
       if (i >= TOUR_STEPS.length) { end(); return; }
@@ -1711,7 +1728,8 @@
       card.innerHTML =
         `<div class="tour-t">${escapeHtml(s.title)}</div><div class="tour-b">${escapeHtml(s.body)}</div>` +
         `<div class="tour-foot"><span class="tour-count">${i + 1} / ${TOUR_STEPS.length}</span>` +
-        `<span class="tour-btns"><button class="tour-skip" type="button">Skip</button>` +
+        `<label class="tour-never"><input type="checkbox" class="tour-never-in"${never ? ' checked' : ''}> Don't show this again</label>` +
+        `<span class="tour-btns"><button class="tour-skip" type="button">Skip for Now</button>` +
         `<button class="tour-next btn primary" type="button">${i === TOUR_STEPS.length - 1 ? 'Done' : 'Next'}</button></span></div>`;
       // position card below the spot if room, else above
       const cw = 300;
@@ -1721,8 +1739,15 @@
       cleft = Math.max(12, Math.min(cleft, window.innerWidth - cw - 12));
       card.style.top = Math.max(12, ctop) + 'px';
       card.style.left = cleft + 'px';
-      card.querySelector('.tour-next').onclick = () => { i++; render(); };
-      card.querySelector('.tour-skip').onclick = end;
+      /* Held across the re-render, which redraws the card at every stop. */
+      const box = card.querySelector('.tour-never-in');
+      if (box) box.onchange = () => { never = box.checked; };
+      card.querySelector('.tour-next').onclick = () => {
+        /* The last stop is Done, and reaching it counts as having seen it. */
+        if (i === TOUR_STEPS.length - 1) { end(true); return; }
+        i++; render();
+      };
+      card.querySelector('.tour-skip').onclick = () => end(false);
     }
     window.addEventListener('resize', render);
     render();
