@@ -182,6 +182,12 @@ body{
    space of its own. Sized for the bar OPEN — it starts open, and a heading
    that only clears it once somebody folds it is a heading that collides on
    first sight. Two more controls joined the row, hence the number. */
+/* The way through to step 02. Outlined in the accent rather than filled: it is
+   not the primary act on this screen — Draft with Gemini is — but it is the
+   only one that leaves for another tool, and it was missing entirely. */
+.handoff-btn{border-color:var(--accent);color:var(--accentInk);font-weight:650}
+.handoff-btn:hover{background:var(--accentBg)}
+
 .mainhead{padding-right:244px}
 .form-view,.brief-view{padding:28px 36px;display:flex;flex-direction:column;align-items:center;height:100%;overflow:hidden}
 .form-view[hidden],.brief-view[hidden]{display:none!important}

@@ -47,6 +47,25 @@ Answers autosave to the browser. The Full Brief view generates an exportable bri
 
 ## The handoff to LTP Strategy
 
+**Prepare for Strategy Discovery** downloads the brief as Markdown, ready to
+drop on Strategy's New Plan door — which fills in the region, the market and the
+product area and carries the lines onto the board.
+
+⚠️ **This was missing, and the pipe was broken without it.** Strategy reads the
+brief well; nothing here produced the file it wanted. `Copy` sends
+`briefDoc.innerText` — the rendered prose — which Strategy parses to **zero
+entries**, and its refusal then told people to *"export it from the brief tool
+and drop the file"*: a file no button made. The two are not interchangeable.
+
+It exports **what is on screen**, not the answers, because the brief may be a
+Gemini draft the client has since edited by hand and exporting the answers
+would quietly undo that on the way across. The handoff block is rebuilt from
+the answers regardless — it is a machine's copy of the four identity fields
+rather than anybody's prose. A press before the review has rendered falls back
+to the answers, so nobody is handed a block with no brief above it.
+
+
+
 The export is one Markdown file with a JSON block at its foot, under a `Handoff`
 heading. A strategist and the model they drop it on read the prose; the block is what
 Strategy's start screen can one day register a plan from without anybody retyping

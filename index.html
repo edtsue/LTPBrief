@@ -133,6 +133,15 @@
           <button class="btn primary" id="genBtn" type="button" data-tip="Let Gemini rewrite your answers into a polished brief"><svg class="gstar"><use href="#starw" /></svg> Draft with Gemini</button>
           <button class="btn" id="copyBtn" type="button" data-tip="Copy the brief to your clipboard">Copy</button>
           <button class="btn" id="pdfBtn" type="button" data-tip="Export the brief as a PDF">Export as PDF</button>
+          <!-- ⚠️ THE ONLY DOOR ONTO THE NEXT STEP, AND IT WAS MISSING. Strategy
+               Discovery reads this brief by drag — and reads it well, filling in
+               the market, the product area and the region and carrying the
+               lines onto the board. But nothing here produced the file it
+               wanted: Copy sends the rendered prose, which parses to nothing at
+               all, and Strategy's own refusal told people to "export it from
+               the brief tool and drop the file" — a file no button made. -->
+          <button class="btn handoff-btn" id="prepBtn" type="button"
+            data-tip="Download the brief as Markdown, ready to drop into Strategy Discovery">Prepare for Strategy Discovery</button>
           <button class="btn ghost" id="editBtn" type="button" data-tip="Go back to the form">← Back to Editing</button>
           <button class="btn ghost more-btn" id="moreBtn" type="button" aria-label="More actions" data-tip="More actions">•••</button>
           <button class="btn ghost sheet-only" id="resetBriefBtn" type="button">Rebuild from Answers</button>

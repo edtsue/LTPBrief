@@ -33,6 +33,7 @@
     genBtn: document.getElementById('genBtn'),
     copyBtn: document.getElementById('copyBtn'),
     pdfBtn: document.getElementById('pdfBtn'),
+    prepBtn: document.getElementById('prepBtn'),
     resetBriefBtn: document.getElementById('resetBriefBtn'),
     readiness: document.getElementById('readiness'),
     saveFileBtn: document.getElementById('saveFileBtn'),
@@ -990,6 +991,16 @@
     tmp.querySelectorAll('.sec-ai').forEach(b => b.remove());
     return Brief.htmlToMarkdown(tmp);
   }
+  /* THE WHOLE BRIEF AS IT STANDS ON SCREEN, back to Markdown.
+     `sectionMarkdown` does this for one section; this is the same act for all
+     of it, and it strips the same thing — the per-section assist buttons are
+     controls, not content, and they must not travel to the next step. */
+  function currentMarkdown() {
+    const tmp = el.briefDoc.cloneNode(true);
+    tmp.querySelectorAll('.sec-ai, .ai-mini, .refine-overlay').forEach(b => b.remove());
+    return Brief.htmlToMarkdown(tmp);
+  }
+
   function headingText(h2) {
     const clone = h2.cloneNode(true);
     clone.querySelectorAll('.sec-ai').forEach(b => b.remove());
@@ -1573,6 +1584,37 @@
     catch { toast('Copy failed — select and copy manually'); }
   });
   // Export the brief as a PDF via the browser's print-to-PDF (print stylesheet isolates the brief).
+  /* ── handing the brief to step 02 ──────────────────────────────────────
+   *
+   * Markdown, as a file, because that is what Strategy Discovery's door reads:
+   * it fills in the region, the market and the product area from the handoff
+   * block and carries the lines onto the board.
+   *
+   * ⚠️ NOT `Copy`. That sends `briefDoc.innerText` — the rendered prose — and
+   * Strategy parses it to nothing at all, then says the brief was not one.
+   * The two are not interchangeable and this is the one that travels.
+   *
+   * It exports what is ON SCREEN, not what is in the answers: the brief may be
+   * a Gemini draft the client has since edited by hand, and exporting the
+   * answers would quietly undo their editing on the way across. The handoff
+   * block is rebuilt from the answers regardless, because that block is a
+   * machine's copy of the four identity fields rather than anybody's prose.
+   */
+  if (el.prepBtn) el.prepBtn.addEventListener('click', () => {
+    /* ⚠️ AND FALL BACK TO THE ANSWERS IF THERE IS NOTHING ON SCREEN YET. The
+       brief is rendered when somebody opens the review, so a press before that
+       — or straight after a rebuild — would otherwise hand step 02 a file with
+       a handoff block and no brief above it, which reads as the work having
+       been lost rather than as the wrong button. */
+    const shown = currentMarkdown();
+    const md = Brief.toExport(data, shown && shown.trim() ? shown : null);
+    const bits = [data.market, data.productArea, data.cycle]
+      .map(x => String(x || '').trim()).filter(Boolean)
+      .map(x => x.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+    Brief.download(md, `ltp-brief-${bits.join('-') || 'draft'}.md`);
+    toast('Downloaded. Drop it on Strategy Discovery’s New Plan door.');
+  });
+
   el.pdfBtn.addEventListener('click', () => {
     const prev = document.title;
     document.title = 'LTP Brief — ' + (data.productArea || 'Draft');

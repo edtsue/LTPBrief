@@ -104,3 +104,70 @@ test('the prose still shows the budget the way a person reads it', () => {
   const { Brief } = load();
   assert.match(Brief.toMarkdown({ budget: { low: 4, high: 6 } }), /\$4M – \$6M/);
 });
+
+/* ── the door onto step 02 ────────────────────────────────────────────────
+ *
+ * ⚠️ IT WAS MISSING. Strategy Discovery reads this brief by drag and reads it
+ * well — but nothing here produced the file it wants. Copy sends the rendered
+ * prose, which parses to nothing, and Strategy's refusal told people to
+ * "export it from the brief tool and drop the file": a file no button made.
+ */
+const fsH = require('node:fs');
+const pathH = require('node:path');
+const ROOTH = pathH.join(__dirname, '..');
+const readH = (...p) => fsH.readFileSync(pathH.join(ROOTH, ...p), 'utf8');
+
+test('the brief can be handed to Strategy Discovery in one press', () => {
+  const html = readH('index.html');
+  assert.match(html, /id="prepBtn"/, 'there is no way to hand the brief on');
+  const bar = html.slice(html.indexOf('brief-actions'), html.indexOf('</div>', html.indexOf('brief-actions')));
+  assert.ok(bar.includes('prepBtn'), 'the button is not on the action bar');
+  const app = readH('js', 'app.js');
+  /* Sliced to where the handler actually ends rather than a fixed number of
+     characters — a window measured in characters silently stops covering the
+     thing it was written to check the moment a comment is added above it. */
+  const fn = app.slice(app.indexOf("el.prepBtn.addEventListener"),
+                       app.indexOf('el.pdfBtn.addEventListener'));
+  assert.ok(fn, 'the handler could not be found');
+  assert.match(fn, /Brief\.download\(/, 'the button downloads nothing');
+});
+
+test('⚠️ it sends Markdown, not the rendered prose Copy sends', () => {
+  /* The two are not interchangeable: Strategy parses the prose to nothing.
+     This is the one that travels. */
+  const app = readH('js', 'app.js');
+  const fn = app.slice(app.indexOf("el.prepBtn.addEventListener"), app.indexOf('el.pdfBtn.addEventListener'));
+  assert.match(fn, /Brief\.toExport\(/, 'it does not build the export form');
+  assert.ok(!/innerText/.test(fn), 'it sends the rendered prose, which parses to nothing');
+  assert.match(fn, /\.md`|\.md'/, 'the file is not named as Markdown');
+});
+
+test('it exports what is on screen, and rebuilds the handoff block regardless', () => {
+  /* The brief may be a Gemini draft the client has since edited by hand, so
+     exporting the answers would quietly undo their editing on the way across.
+     The block is a machine's copy of the identity fields, not anybody's prose,
+     so it is rebuilt from the answers either way. */
+  const app = readH('js', 'app.js');
+  const fn = app.slice(app.indexOf("el.prepBtn.addEventListener"), app.indexOf('el.pdfBtn.addEventListener'));
+  assert.match(fn, /currentMarkdown\(\)/, 'it exports the answers rather than the edited brief');
+  assert.match(app, /function currentMarkdown/, 'there is nothing that reads the brief back');
+  const brief = readH('js', 'brief.js');
+  assert.match(brief, /function toExport\(data, md\)/, 'toExport no longer takes the edited prose');
+});
+
+test('the assist controls do not travel to the next step', () => {
+  /* They are controls, not content. */
+  const app = readH('js', 'app.js');
+  const fn = app.slice(app.indexOf('function currentMarkdown'), app.indexOf('function headingText'));
+  assert.match(fn, /sec-ai/, 'the per-section assist buttons are exported as content');
+});
+
+test('⚠️ a press before the brief is rendered still hands over the brief', () => {
+  /* The action bar lives in the review, so ordinarily briefDoc is full. But an
+     empty one would produce a handoff block with no brief above it, which
+     reads as the work having been lost rather than as the wrong button. */
+  const app = readH('js', 'app.js');
+  const fn = app.slice(app.indexOf("el.prepBtn.addEventListener"), app.indexOf('el.pdfBtn.addEventListener'));
+  assert.match(fn, /shown && shown\.trim\(\) \? shown : null/,
+    'an unrendered brief exports as empty');
+});
