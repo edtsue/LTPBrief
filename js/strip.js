@@ -23,8 +23,21 @@ const Strip = (() => {
   const TEACH_AFTER = 2000;
   /* Visits between reminders, once it has been shown and folded. */
   const REMIND_EVERY = 5;
-  /* Waiting on whatever `hold` is guarding. Retried rather than abandoned. */
+  /* Waiting on whatever `hold` is guarding.
+
+     ⚠️ BOUNDED, AND IT HAS TO BE. This retried forever, which is a timer
+     running every 1.4 seconds for the life of the page whenever the thing
+     being waited on does not clear — a tour left open in a background tab, a
+     dialog nobody came back to. It showed up as a test process that booted the
+     app and then never exited, which is the same fault with the volume turned
+     up.
+
+     Giving up does NOT mark it taught. The demonstration is spent once, and
+     spending it on a moment when something was covering the screen is exactly
+     what the waiting exists to prevent — so it comes back on the next visit
+     instead. */
   const HOLD_RETRY = 1400;
+  const HOLD_TRIES = 10;
 
   let box = null;
   let tog = null;
@@ -187,12 +200,16 @@ const Strip = (() => {
     } catch (e) { void e; }
     if (still) { fold(true, true, true); markTaught(); return; }
 
+    let waited = 0;
     const shut = () => {
       /* Something else may be measuring this chrome — a tour that has drawn a
          ring against a rect it already took. Chrome that reflows underneath
          leaves the ring around nothing, so this waits rather than competing
          with it. */
-      if (hold && hold()) { setTimeout(shut, HOLD_RETRY); return; }
+      if (hold && hold()) {
+        if (waited++ < HOLD_TRIES) setTimeout(shut, HOLD_RETRY);
+        return;
+      }
       /* And if they folded it themselves while this was waiting, there is
          nothing left to demonstrate. */
       fold(true, true);
